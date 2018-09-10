@@ -41,48 +41,7 @@ def domain_name_valid(domain_name):
 
 
 def create_vtep_ip_pool(ip_pool_list, ip_pool_mask, ip_pool_gateway, number_of_hosts, ip_pool_dns, ip_pool_suffix):
-    """ description of inputs
-        ip_pool_list = coming from CLI argument.  Specified in the format 192.168.0.1-192.168.0.10.  multiple ranges can be specified, use comma to separate i.e 192.168.0.1-192.168.0.10,192.168.0.50-192.168.0.60
-        ip_pool_mask = coming from CLI argument.  Specified in CIDR format (i.e. /24, /29, etc)
-        ip_pool_gateway = coming from CLI argument.  Specified as 192.168.0.254
-        number_of_hosts = count the total number of IPs across the specified range(s) and it must be at least 2x this variable.  error out if they provided fewer than this number
-        ip_pool_dns = comma separated list of DNS server IPs
-        ip_pool_suffix = valid domain name for dns suffix
-        variables and string manipulations
-        vtep_mask = ip_pool_mask, but reformatted as the CIDR format without the slash.  so /24 converts to 24, etc.
-        vtep_gateway = ip_pool_gateway, but validated so its really formatted as a full ip address
-        vtep_suffix = ip_pool_suffix, but validated so its a real domain name and not some bs, i.e. mydomain.local or similar
-        vtep_dns_1 = first value from ip_pool_dns
-        vtep_dns_2 = second value from ip_pool_dns (if present, if not leave blank)
-        vtep_range_1_start_ip = first IP from the first range
-        vtep_range_1_end_ip = last IP from the first range
-        vtep_range_2_start_ip = first IP from the first range
-        vtep_range_2_end_ip = last IP from the first range
-         ... you'll need to make as many of these as there are specified ranges in ip_pool_string, not sure of the best way to go about it
-        outputs
-            XML formatted multiline string that looks something like the following:
-    """
 
-    """
-    <ipamAddressPool>
-     <name>VTEP-Pool</name>
-     <prefixLength>{vtep_mask}</prefixLength>
-     <gateway>{vtep_gateway}</gateway>
-     <dnsSuffix>{vtep_suffix}</dnsSuffix>
-     <dnsServer1>{vtep_dns_1}</dnsServer1>
-     <dnsServer2>{vtep_dns_2}</dnsServer2>
-     <ipRanges>
-       <ipRangeDto>
-         <startAddress>{vtep_range_1_start_ip}</startAddress>
-         <endAddress>{vtep_range_1_end_ip}</endAddress>
-       </ipRangeDto>
-       <ipRangeDto>
-         <startAddress>{vtep_range_2_start_ip}</startAddress>
-         <endAddress>{vtep_range_2_end_ip}</endAddress>
-       </ipRangeDto>
-     </ipRanges>
-    </ipamAddressPool>
-    """
     # get list of dns addresses
     vtep_dns_list = ip_pool_dns.split(",")
 
