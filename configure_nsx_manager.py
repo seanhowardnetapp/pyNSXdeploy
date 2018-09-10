@@ -138,7 +138,7 @@ def main():
     #create the IP Pool VTEP-Pool
     #Temporarily, I'm just setting the number of hosts to 2, need to add a function that figures this out
 
-    status, xml_string = create_vtep_ip_pool(VTEP_IP_Range,
+    status, vtep_pool_xml_string = create_vtep_ip_pool(VTEP_IP_Range,
                                              VTEP_Mask,
                                              VTEP_Gateway,
                                              2,
@@ -146,22 +146,16 @@ def main():
                                              VTEP_Domain
                                              )
 
+    # print out the status of our vtep ip pool
     # status == 0 is success, status == -1 means validation failed
     if status == 0:
-        # xml_string is valid
-        print(xml_string)
+        # vtep_pool_xml_string is valid
+        print(vtep_pool_xml_stringxml_string)
     else:
-        # xml_string contains error message
-        print("ERROR : {0}".format(xml_string))
+        # vtep_pool_xml_string contains error message
+        print("ERROR : {0}".format(vtep_pool_xml_stringxml_string))
 
 def set_segment_id_range(headers,nsx_manager_address):
-
-    # uncomment this to print the current segment id situation for debugging purposes
-    # conn = HTTPSConnection(nsx_manager_address)
-    # conn.request('GET', 'https://' + nsx_manager_address + '/api/2.0/vdn/config/segments/','',headers)
-    # response = conn.getresponse()
-    # print (str(response.status))
-    # print (str(response.read()))
 
     segment_begin=5000
     segment_end=10000
@@ -282,9 +276,7 @@ def create_vtep_ip_pool(ip_pool_list, ip_pool_mask, ip_pool_gateway, number_of_h
     else:
         return -1, "Invalid ip_pool_gateway {0}".format(ip_pool_gateway)
 
-
     vtep_suffix = ip_pool_suffix
-
 
     # format xml string header
     xml_string = """
