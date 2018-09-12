@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+
 """
 Orignal deploy_ova.py script written by Nathan Prziborowski
 Github: https://github.com/prziborowski
@@ -75,7 +76,7 @@ from six.moves.urllib.request import Request, urlopen
 
 from tools import cli
 
-from pyVim.connect import SmartConnectNoSSL, Disconnect
+from pyvim.connect import SmartConnectNoSSL, Disconnect
 from pyVmomi import vim, vmodl
 
 
@@ -206,6 +207,7 @@ def get_network(si, dc, name):
                                                     True)
     try:
         for network in containerView.view:
+            print(network.name)
             if network.name == name:
                 return network
     finally:

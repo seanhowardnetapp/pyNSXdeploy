@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Orignal configure_nsx_manager.py script written by Sean Howard
@@ -32,19 +32,21 @@ import ssl
 import sys
 import ipaddress
 import re
+import socket
+import hashlib
 import base64
 
 from http.client import HTTPSConnection
 
 from tools import cli
 
-
-from pyVim.connect import SmartConnectNoSSL, Disconnect
+from pyvim.connect import SmartConnectNoSSL, Disconnect
 from pyVmomi import vim, vmodl
 
 
 __author__ = 'hows@netapp.com'
 
+ip_mask_re = re.compile("/\d{1,2}")
 
 def setup_args():
     parser = cli.build_arg_parser()
@@ -98,6 +100,8 @@ def setup_args():
 def main():
     args = setup_args()
 
+
+
     #disable SSL certificate verification since most customers aren't going to set their NSX Manager up with a trusted CA
 
     if (not os.environ.get('PYTHONHTTPSVERIFY', '') and
@@ -109,6 +113,8 @@ def main():
     creds = base64.b64encode(credstring.encode()).decode('ascii')
 
     headers = {'Content-Type' : 'application/xml','Authorization' : 'Basic ' + creds }
+    nsx_manager_address = args.nsx_manager_address
+
     print(headers)
 
     #connect to vcenter via SOAP
@@ -132,28 +138,29 @@ def main():
     print("Datacenter in use:")
     print(dc)
 
+    #register with SSO
+    register_nsx_with_lookup_service(headers, args.nsx_manager_address, args.lookup_service_address, args.user, args.password)
+
+    #register with vCenter
+    register_nsx_with_vcenter(headers, args.nsx_manager_address, args.host, args.user, args.password)
+    
     #set the segment id range
     set_segment_id_range(headers,args.nsx_manager_address)
 
     #create the IP Pool VTEP-Pool
-    #Temporarily, I'm just setting the number of hosts to 2, need to add a function that figures this out
 
-    status, vtep_pool_xml_string = create_vtep_ip_pool(VTEP_IP_Range,
-                                             VTEP_Mask,
-                                             VTEP_Gateway,
-                                             2,
-                                             VTEP_DNS,
-                                             VTEP_Domain
-                                             )
+    vtep_domain = str(args.VTEP_domain)
+    vtep_dns = str(args.VTEP_DNS)
+    vtep_gateway = str(args.VTEP_Gateway)
+    vtep_mask = str(args.VTEP_Mask)
+    vtep_ip_range = str(args.VTEP_IP_Range)
+    num_hosts = 2
 
-    # print out the status of our vtep ip pool
-    # status == 0 is success, status == -1 means validation failed
-    if status == 0:
-        # vtep_pool_xml_string is valid
-        print(vtep_pool_xml_stringxml_string)
-    else:
-        # vtep_pool_xml_string contains error message
-        print("ERROR : {0}".format(vtep_pool_xml_stringxml_string))
+    create_vtep_ip_pool(nsx_manager_address,headers,vtep_ip_range,vtep_mask,vtep_gateway,num_hosts,vtep_dns,vtep_domain)
+
+
+
+
 
 def set_segment_id_range(headers,nsx_manager_address):
 
@@ -184,13 +191,67 @@ def set_segment_id_range(headers,nsx_manager_address):
             print (str(response.status) + " Segment ID Range created successfully")
     return
 
-def register_nsx_with_vcenter(headers, nsx_manager_address, vcenter_address):
-    # coming soon
 
-def register_nsx_with_lookup_service(headers, nsx_manager_address, lookup_service_address):
-    # coming soon
+def register_nsx_with_lookup_service(headers, nsx_manager_address, lookup_service_address, vcenter_username, vcenter_password):
 
-def deploy_nsx_controllers(headers, nsx_manager_address, controller_cluster, controller_datastores, controller_network, dc):
+    thumbprint = get_sha1_thumbprint(lookup_service_address)
+
+    lookup_service_url = 'https://' + lookup_service_address + ':443/lookupservice/sdk'
+
+    xml_string = """
+        <ssoConfig>
+          <ssoLookupServiceUrl>{0}</ssoLookupServiceUrl>
+          <ssoAdminUsername>{1}</ssoAdminUsername>
+          <ssoAdminUserpassword>{2}</ssoAdminUserpassword>
+          <certificateThumbprint>{3}</certificateThumbprint>
+        </ssoConfig>
+        """.format(lookup_service_url, vcenter_username, vcenter_password, thumbprint)
+
+    print("Registering NSX Manager with the SSO Lookup Service...")
+
+    conn = HTTPSConnection(nsx_manager_address)
+    conn.request('POST', 'https://' + nsx_manager_address + '/api/2.0/services/ssoconfig', xml_string, headers)
+
+    response = conn.getresponse()
+
+    if response.status != 200:
+        print(str(response.status) + " Lookup service did not register.  Maybe it already is?")
+    else:
+        print(str(response.status) + " Lookup service registered successfully")
+    return
+
+
+def register_nsx_with_vcenter(headers, nsx_manager_address, vcenter_address, vcenter_username, vcenter_password):
+
+    thumbprint = get_sha256_thumbprint(vcenter_address)
+
+    xml_string = """
+        <vcInfo>
+          <ipAddress>{0}</ipAddress>
+          <userName>{1}</userName>
+          <password>{2}</password>
+          <certificateThumbprint>{3}</certificateThumbprint>
+          <assignRoleToUser>true</assignRoleToUser>
+          <pluginDownloadServer></pluginDownloadServer>
+          <pluginDownloadPort></pluginDownloadPort>
+        </vcInfo>
+        """.format(vcenter_address, vcenter_username, vcenter_password, thumbprint)
+
+    print("Registering NSX Manager with vCenter...")
+
+
+    conn = HTTPSConnection(nsx_manager_address)
+    conn.request('PUT', 'https://' + nsx_manager_address + '/api/2.0/services/vcconfig', xml_string, headers)
+
+    response = conn.getresponse()
+
+    if response.status != 200:
+        print(str(response.status) + " vCenter not registered.  Maybe it already is?")
+    else:
+        print(str(response.status) + " vCenter server registered successfully")
+    return
+
+#$def deploy_nsx_controllers(headers, nsx_manager_address, controller_cluster, controller_datastores, controller_network, dc):
 
     # coming soon
     # deploy 3 NSX controllers to whatever datacenter and cluster you specified by name, error out if it can't find it
@@ -202,12 +263,12 @@ def deploy_nsx_controllers(headers, nsx_manager_address, controller_cluster, con
     # there is an API method to get the progress percentage for a currently deploying controller.  maybe sample that and print it every minute?
     # check the comm channel health of the controllers and only exit this function successfully once all three are green
 
-def prepare_clusters_for_dfw(headers, nsx_manager_address, cluster_prep_list):
+#def prepare_clusters_for_dfw(headers, nsx_manager_address, cluster_prep_list):
 
     # coming soon
     # just do the basic VIB install against the specified clusters
 
-def prepare_clusters_for_vxlan(headers, nsx_manager_address, cluster_prep_list, dvs_name, vtep_vlan_id):
+#def prepare_clusters_for_vxlan(headers, nsx_manager_address, cluster_prep_list, dvs_name, vtep_vlan_id):
 
     # coming soon
     # configure VXLAN on the specified clusters
@@ -215,14 +276,14 @@ def prepare_clusters_for_vxlan(headers, nsx_manager_address, cluster_prep_list, 
     # use the IP pool called VTEP-Pool
     # use multi-vtep / route by src id teaming policy
 
-def create_transport_zone(headers, nsx_manager_address, dvs_name, cluster_prep_list):
+#def create_transport_zone(headers, nsx_manager_address, dvs_name, cluster_prep_list):
 
     # coming soon
     # create a local transport zone called "Primary"
     # set replication type to Unicast
     # bind the clusters in cluster_prep_list to it
 
-def check_dvs(si, dvs_name, vtep_vlan_id, cluster_prep_list):
+#def check_dvs(si, dvs_name, vtep_vlan_id, cluster_prep_list):
 
     # coming soon
     # 1. Check via SOAP to make sure the DVS has exactly two uplinks, and that they are both the same speed (i.e. none of this mixed uplinks thing)
@@ -233,7 +294,7 @@ def check_dvs(si, dvs_name, vtep_vlan_id, cluster_prep_list):
     # 3. Check via SOAP to make sure the DVS has an overall MTU set of 9000
     # 4. Check via SOAP to make sure all of the clusters specified in args.cluster_prep_list are actually bound to the dvs
 
-def create_vtep_ip_pool(ip_pool_list, ip_pool_mask, ip_pool_gateway, number_of_hosts, ip_pool_dns, ip_pool_suffix):
+def create_vtep_ip_pool(nsx_manager_address, headers, ip_pool_list, ip_pool_mask, ip_pool_gateway, number_of_hosts, ip_pool_dns, dns_suffix):
 
     # get list of dns addresses
     vtep_dns_list = ip_pool_dns.split(",")
@@ -276,8 +337,6 @@ def create_vtep_ip_pool(ip_pool_list, ip_pool_mask, ip_pool_gateway, number_of_h
     else:
         return -1, "Invalid ip_pool_gateway {0}".format(ip_pool_gateway)
 
-    vtep_suffix = ip_pool_suffix
-
     # format xml string header
     xml_string = """
     <ipamAddressPool>
@@ -285,7 +344,7 @@ def create_vtep_ip_pool(ip_pool_list, ip_pool_mask, ip_pool_gateway, number_of_h
       <prefixLength>{0}</prefixLength>
       <gateway>{1}</gateway>
       <dnsSuffix>{2}</dnsSuffix>
-    """.format(vtep_mask, vtep_gateway, vtep_suffix)
+    """.format(vtep_mask, vtep_gateway, dns_suffix)
 
     # add dns server(s)
     dns_count = 1
@@ -302,9 +361,10 @@ def create_vtep_ip_pool(ip_pool_list, ip_pool_mask, ip_pool_gateway, number_of_h
         xml_string += "      <endAddress>{0}</endAddress>\n".format(ip[1])
         xml_string += "    </ipRangeDto>\n"
     xml_string += "  </ipRanges>\n"
-    xml_string += "<ipamAddressPool>"
+    xml_string += "</ipamAddressPool>"
 
     print("Creating IP pool VTEP-Pool...")
+
 
     conn = HTTPSConnection(nsx_manager_address)
     conn.request('POST', 'https://' + nsx_manager_address + '/api/2.0/services/ipam/pools/scope/globalroot-0', xml_string, headers)
@@ -318,7 +378,7 @@ def create_vtep_ip_pool(ip_pool_list, ip_pool_mask, ip_pool_gateway, number_of_h
     return
 
 
-def create_controller_ip_pool(headers, nsx_manager_address, ip_pool_string, ip_pool_mask, ip_pool_gateway, number_of_hosts, ip_pool_dns, ip_pool_suffix):
+#def create_controller_ip_pool(headers, nsx_manager_address, ip_pool_string, ip_pool_mask, ip_pool_gateway, number_of_hosts, ip_pool_dns, ip_pool_suffix):
 
     # same deal as the create_vtep_ip_pool, but we just need 3 for the controllers
 
@@ -344,6 +404,47 @@ def ip_valid(ip_address):
     except ipaddress.AddressValueError:
         return False
 
+def get_sha1_thumbprint(vcenter_address):
+
+    thumbprint = "not found"
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(1)
+    wrappedSocket = ssl.wrap_socket(sock)
+
+    try:
+        wrappedSocket.connect((vcenter_address, 443))
+    except:
+        response = False
+    else:
+
+        thumb_sha1 = hashlib.sha1(wrappedSocket.getpeercert(True)).hexdigest()
+        thumbprint = (':'.join(thumb_sha1[i:i + 2] for i in range(0, len(thumb_sha1), 2))).upper()
+
+    wrappedSocket.close()
+
+    return thumbprint
+
+def get_sha256_thumbprint(vcenter_address):
+
+    thumbprint = "not found"
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(1)
+    wrappedSocket = ssl.wrap_socket(sock)
+
+    try:
+        wrappedSocket.connect((vcenter_address, 443))
+    except:
+        response = False
+    else:
+
+        thumb_sha256 = hashlib.sha256(wrappedSocket.getpeercert(True)).hexdigest()
+        thumbprint = (':'.join(thumb_sha256[i:i + 2] for i in range(0, len(thumb_sha256), 2))).upper()
+
+    wrappedSocket.close()
+
+    return thumbprint
 
 if __name__ == "__main__":
     exit(main())
