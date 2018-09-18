@@ -38,27 +38,9 @@ Arguments
 -map_eth0_to_network [name of network the NSX manager's management interface should bind to]
 
 
-example for deploying it to my lab from a windows box
+Example with parameters:
 -----------------------------------------------------
-deploy_nsx_manager.py ^
--s 10.217.91.253 ^
--u admin@vsphere.local ^
--p sC!8NyRAmzPh ^
--S ^
--ds nfs ^
---ova-path "VMware-NSX-Manager-6.4.1-8599035.ova" ^
--vsm_cli_passwd_0 NetApp123!NetApp123! ^
--vsm_cli_en_passwd_0 NetApp123!Netapp123! ^
--vsm_hostname nsxmanager1 ^
--vsm_ip_0 10.217.88.100 ^
--vsm_netmask_0 255.255.252.0 ^
--vsm_gateway_0 10.217.91.254 ^
--vsm_ntp_0 199.38.183.232 ^
--vsm_dns1_0 8.8.8.8,8.8.8.4 ^
--map_eth0_to_network "VM Network" ^
--vmname "NSX-Manager-1" ^
--cluster Management
-
+python3 ./deploy_nsx_manager.py -s 10.217.91.253 -u administrator@vsphere.local -p Password@123 -S -ds nfsdatastore --ova-path "VMware-NSX-Manager-6.4.1-8599035.ova" -vsm_cli_passwd_0 NetApp123\!NetApp123\! -vsm_cli_en_passwd_0 NetApp123\!Netapp123\! -vsm_hostname nsxmanager1 -vsm_ip_0 10.217.88.110 -vsm_netmask_0 255.255.252.0 -vsm_gateway_0 10.217.91.254 -vsm_ntp_0 199.38.183.232 -vsm_dns1_0 8.8.8.8,8.8.8.4 -map_eth0_to_network NSX_Controllers -vmname "NSX-Manager-1" -cluster Management
 """
 
 import atexit
