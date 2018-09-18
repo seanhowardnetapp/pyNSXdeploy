@@ -185,7 +185,22 @@ def main():
 
     print("Starting deploy...")
 
-    return ovf_handle.upload_disks(lease, args.host)
+    ovf_handle.upload_disks(lease, args.host)
+
+    # Wait a little bit then try to power nsx manager on
+
+    time.sleep(60)
+    vmnames = args.vmname
+    content = si.content
+    objView = content.viewManager.CreateContainerView(content.rootFolder,
+                                                      [vim.VirtualMachine],
+                                                      True)
+    vmList = objView.view
+    objView.Destroy()
+
+    tasks = [vm.PowerOn() for vm in vmList if vm.name in vmnames]
+
+    print("done")
     
     
 def get_cluster(si, dc, name):
