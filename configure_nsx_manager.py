@@ -25,6 +25,8 @@ Assumptions and Design Decisions this script makes for you
 
 Example with parameters:
 python3 ./configure_nsx_manager.py -nsx_manager_address 10.217.88.110 -nsx_manager_username admin -nsx_manager_password NetApp123\!NetApp123\! -s 10.217.91.253 -u administrator@vsphere.local -p Password@123 -S -VTEP_IP_Range 10.217.88.155-10.217.88.158,10.217.88.160-10.217.88.165 -VTEP_Mask /22 -VTEP_Gateway 10.217.91.254 -VTEP_DNS 8.8.8.8,8.8.8.4 -VTEP_domain lab.local -lookup_service_address 10.217.91.253 -VTEP_VLAN_ID 0 -Controller_IP_Range 10.217.88.166-10.217.88.168 -Controller_Mask /22 -Controller_Gateway 10.217.91.254 -Controller_Cluster Management -Controller_DNS 8.8.8.8,8.8.8.4 -Controller_domain lab.local -Controller_Datastores nfsdatastore -Controller_Network NSX_Controllers -Controller_Password NetApp123\!NetApp123\! -DVS Management_Cluster -cluster_prep_list Compute
+
+dbc
 """
 
 import ssl
@@ -99,6 +101,8 @@ def setup_args():
                         help='Password you want the controllers to use for their admin accounts.  Must be complex and at least 12 characters.')
     parser.add_argument('-DVS', '--DVS',
                         help='name of the Distributed Virtual Switch you wish to bind the VXLAN transport zone to')
+    parser.add_argument('-key', '--key',
+                        help='NSX License Key in the format XXXXX-XXXXX-XXXXX-XXXXX-XXXXX')
     return(parser.parse_args())
 
 def main():
@@ -116,8 +120,7 @@ def main():
 
     headers = {'Content-Type' : 'application/xml','Authorization' : 'Basic ' + creds }
     nsx_manager_address = args.nsx_manager_address
-
-    print(headers)
+    nsx_license_key = args.key
 
     #connect to vcenter via SOAP
     try:
@@ -140,24 +143,45 @@ def main():
     print("Datacenter in use:")
     print(dc)
 
+    # set up some more variables that require connection to vcenter to figure out
+
+    dvs_moref = str(get_dvs_moref(dc, args.DVS)).replace('vim.dvs.VmwareDistributedVirtualSwitch:', '')
+    dvs_moref = dvs_moref.replace("'", "")
+
+    cluster_moref_list = []
+    cluster_prep_list = args.cluster_prep_list.split(",")
+
+    for c in cluster_prep_list:
+        cluster_id = str(get_cluster_moref(dc, c)).replace('vim.ClusterComputeResource:', '')
+        cluster_id = cluster_id.replace("'", "")
+        cluster_moref_list.append(cluster_id)
+
+
+    # start the actual work here
+
     # register with SSO
-    register_sso_status = register_nsx_with_lookup_service(headers, args.nsx_manager_address, args.lookup_service_address, args.user, args.password)
+    register_sso_status = register_nsx_with_lookup_service(headers, nsx_manager_address, args.lookup_service_address, args.user, args.password)
     print(*register_sso_status)
 
     # register with vCenter
-    register_vcenter_status = register_nsx_with_vcenter(headers, args.nsx_manager_address, args.host, args.user, args.password)
+    register_vcenter_status = register_nsx_with_vcenter(headers, nsx_manager_address, args.host, args.user, args.password)
     print(*register_vcenter_status)
     
+    # Add NSX License Key and assign it to the NSX solution
+    add_nsx_license_key(dc, si, nsx_license_key)
+    
     # set the segment id range
-    segment_id_status = set_segment_id_range(headers,args.nsx_manager_address)
+    segment_id_status = set_segment_id_range(headers, nsx_manager_address)
     print(*segment_id_status)
-
+   
     # create the IP Pool VTEP-Pool
+    
     num_hosts = 2 #hard set the num_hosts to 2 for now until I can create the function to figure that out
 
     vtep_ip_pool_status = create_vtep_ip_pool(nsx_manager_address,headers,args.VTEP_IP_Range,args.VTEP_Mask,args.VTEP_Gateway,num_hosts,args.VTEP_DNS,args.VTEP_domain)
     vtep_ip_pool_id = vtep_ip_pool_status[1]
     print(*vtep_ip_pool_status)
+    print(vtep_ip_pool_id)
 
     # create the IP Pool Controller-Pool
     controller_ip_pool_status = create_controller_ip_pool(nsx_manager_address,headers,args.Controller_IP_Range,args.Controller_Mask,args.Controller_Gateway,args.Controller_DNS,args.Controller_domain)
@@ -167,7 +191,30 @@ def main():
 
     # Deploy three NSX controllers
     nsx_controller_status = deploy_nsx_controllers(headers, nsx_manager_address, args.Controller_Cluster, args.Controller_Datastores, args.Controller_Network, args.Controller_Password, controller_ip_pool_id, dc, si)
+    print(*nsx_controller_status)
+    
+    # prepare the specified clusters for DFW
+    prepare_clusters_for_dfw_status = prepare_clusters_for_dfw(headers, nsx_manager_address, cluster_moref_list)
+    print(*prepare_clusters_for_dfw_status)
 
+    # prepare the specified clusters for VXLAN
+    prepare_clusters_for_vxlan_status = prepare_clusters_for_vxlan(headers, nsx_manager_address, cluster_moref_list, dvs_moref, args.VTEP_VLAN_ID, vtep_ip_pool_id)
+    print(*prepare_clusters_for_vxlan_status)
+
+    # Create Transport Zone "Primary"
+    create_transport_zone_status = create_transport_zone(headers, nsx_manager_address, cluster_moref_list)
+    print(*create_transport_zone_status)
+
+
+def add_nsx_license_key(dc, si, key):
+
+    LicenseManager = si.content.licenseManager
+    LicenseManager.AddLicense(key)
+
+    AssignedLicenses = LicenseManager.licenseAssignmentManager.QueryAssignedLicenses()
+
+    LicenseManager.licenseAssignmentManager.UpdateAssignedLicense('nsx-netsec', key)
+    return 0
 
 def set_segment_id_range(headers,nsx_manager_address):
 
@@ -263,10 +310,10 @@ def register_nsx_with_vcenter(headers, nsx_manager_address, vcenter_address, vce
 
 def deploy_nsx_controllers(headers, nsx_manager_address, controller_cluster, controller_datastores, controller_network, controller_password, controller_ip_pool_id, dc, si):
 
-    # coming soon
     # deploy 3 NSX controllers to whatever datacenter and cluster you specified by name, error out if it can't find it
     # deploy controller 1 to the first datastore in the controller_datastores list, 2 to the second, 3 to the third
-    # hard name the controller VM and hostnames "nsx-controller-1", "nsx-controller-2", "nsx-controller-3"
+    # let the api name the controllers, because for some reason it insists on appending the moref to the end of whatever
+    # name you assign which will be confusing to end users.
     # use the IP pool called "Controller-Pool", created by the create_controller_pool function [obv this must be called later]
     # connect all three controllers to the controller_network specified
     # wait for 10 minutes between each controller deployment (it won't let you do multiple in parallel)
@@ -310,7 +357,7 @@ def deploy_nsx_controllers(headers, nsx_manager_address, controller_cluster, con
       <networkId>{4}</networkId>
       <password>{5}</password>
      </controllerSpec>
-    """.format('NSX-Controller-1',controller_ip_pool_id,resource_pool_id,controller_datastore_ids[0],controller_network_id,controller_password)
+    """.format('',controller_ip_pool_id,resource_pool_id,controller_datastore_ids[0],controller_network_id,controller_password)
 
 
     print("Beginning first NSX controller deployment.  This may take a while...")
@@ -338,7 +385,7 @@ def deploy_nsx_controllers(headers, nsx_manager_address, controller_cluster, con
          <networkId>{4}</networkId>
          <password>{5}</password>
         </controllerSpec>
-       """.format('NSX-Controller-2', controller_ip_pool_id, resource_pool_id, controller_datastore_ids[1], controller_network_id, controller_password)
+       """.format('', controller_ip_pool_id, resource_pool_id, controller_datastore_ids[1], controller_network_id, controller_password)
 
     print("Beginning second NSX controller deployment.  This may take a while...")
     print(xml_string)
@@ -365,7 +412,7 @@ def deploy_nsx_controllers(headers, nsx_manager_address, controller_cluster, con
              <networkId>{4}</networkId>
              <password>{5}</password>
             </controllerSpec>
-           """.format('NSX-Controller-3', controller_ip_pool_id, resource_pool_id, controller_datastore_ids[2], controller_network_id, controller_password)
+           """.format('', controller_ip_pool_id, resource_pool_id, controller_datastore_ids[2], controller_network_id, controller_password)
 
     print("Beginning third NSX controller deployment.  This may take a while...")
     print(xml_string)
@@ -378,38 +425,134 @@ def deploy_nsx_controllers(headers, nsx_manager_address, controller_cluster, con
     print(">" + jobid + "<")
 
 
-    return 0
+    return 0, response.read()
 
-#def prepare_clusters_for_dfw(headers, nsx_manager_address, cluster_prep_list):
 
-    # coming soon
-    # just do the basic VIB install against the specified clusters
+def prepare_clusters_for_dfw(headers, nsx_manager_address, cluster_moref_list):
 
-#def prepare_clusters_for_vxlan(headers, nsx_manager_address, cluster_prep_list, dvs_name, vtep_vlan_id):
 
-    # coming soon
+    for moref in cluster_moref_list:
+        xml_string = """
+            <nwFabricFeatureConfig>
+                <resourceConfig>
+                    <resourceId>{0}</resourceId>
+                </resourceConfig>
+            </nwFabricFeatureConfig>
+            """.format(moref)
+
+        print("Preparing cluster " + moref + "...")
+
+        conn = HTTPSConnection(nsx_manager_address)
+        conn.request('POST', 'https://' + nsx_manager_address + '/api/2.0/nwfabric/configure', xml_string, headers)
+
+        response = conn.getresponse()
+
+        if response.status != 200:
+            print(str(response.status) + " Preparing specified clusters for DFW failed.")
+            return -1, response.read()
+
+
+        print("waiting 5 minutes...")
+        time.sleep(300)
+
+    print("Preparing specified clusters for DFW succeeded.")
+    return 0, response.read()
+
+def prepare_clusters_for_vxlan(headers, nsx_manager_address, cluster_moref_list, dvs_moref, vtep_vlan_id, vtep_ip_pool_id):
+
     # configure VXLAN on the specified clusters
-    # you must have run prepare_clusters_for_dfw, check_dvs, and create_vtep_ip_pool first
     # use the IP pool called VTEP-Pool
     # use multi-vtep / route by src id teaming policy
+    vtep_ip_pool_id = vtep_ip_pool_id.decode('utf-8')
 
-#def create_transport_zone(headers, nsx_manager_address, dvs_name, cluster_prep_list):
+    print('DVS moref: ' + dvs_moref)
+    print('VTEP VLAN ID: ' + vtep_vlan_id)
 
-    # coming soon
+    for moref in cluster_moref_list:
+        print('CLUSTER MOREF: ' + moref)
+
+        xml_string = """
+            <nwFabricFeatureConfig>
+             <featureId>com.vmware.vshield.vsm.vxlan</featureId>
+             <resourceConfig>
+               <resourceId>{0}</resourceId>
+               <configSpec class="clusterMappingSpec">
+                 <switch>
+                   <objectId>{1}</objectId></switch>
+                   <vlanId>{2}</vlanId>
+                   <vmknicCount>2</vmknicCount>
+                   <ipPoolId>{3}</ipPoolId>
+               </configSpec>
+             </resourceConfig>
+             <resourceConfig>
+               <resourceId>{1}</resourceId>
+               <configSpec class="vdsContext">
+                 <switch>
+                     <objectId>{1}</objectId>
+                 </switch>
+                 <mtu>1600</mtu>
+                 <teaming>LOADBALANCE_SRCID</teaming>
+               </configSpec>
+             </resourceConfig>
+            </nwFabricFeatureConfig>""".format(moref,dvs_moref,vtep_vlan_id,vtep_ip_pool_id)
+
+        print("Preparing cluster " + moref + " for VXLAN...")
+
+        conn = HTTPSConnection(nsx_manager_address)
+        conn.request('POST', 'https://' + nsx_manager_address + '/api/2.0/nwfabric/configure', xml_string, headers)
+
+        response = conn.getresponse()
+
+        if response.status != 200:
+            print(str(response.status) + " Preparing specified clusters for VXLAN failed.")
+            return -1, response.read()
+
+        print("waiting 5 minutes...")
+        time.sleep(300)
+
+    print("Preparing specified clusters for VXLAN succeeded.")
+    return 0, response.read()
+
+def create_transport_zone(headers, nsx_manager_address, cluster_moref_list):
+
     # create a local transport zone called "Primary"
     # set replication type to Unicast
-    # bind the clusters in cluster_prep_list to it
+    # bind the all of the clusters specified in cluster_moref_list
+    # cluster must be prepared for vxlan first
 
-#def check_dvs(si, dvs_name, vtep_vlan_id, cluster_prep_list):
+    xml_string = """
+        <vdnScope>
+         <name>Primary</name>
+         <clusters>
+    """
 
-    # coming soon
-    # 1. Check via SOAP to make sure the DVS has exactly two uplinks, and that they are both the same speed (i.e. none of this mixed uplinks thing)
-    # 2. Hit the dvs health check via SOAP to check the following:
-    #    a.  MTU is at least 9000 on the actual links
-    #    b.  The links are NOT in any kind of LACP bundle
-    #    c.  The VLAN specified in args.VTEP_VLAN_ID is actually tagged on both links - unless they specify 0 for the VLAN ID
-    # 3. Check via SOAP to make sure the DVS has an overall MTU set of 9000
-    # 4. Check via SOAP to make sure all of the clusters specified in args.cluster_prep_list are actually bound to the dvs
+    for r in cluster_moref_list:
+        xml_string += "            <cluster>\n"
+        xml_string += "             <cluster>\n"
+        xml_string += "                 <objectId>{0}</objectId>\n".format(r)
+        xml_string += "             </cluster>\n"
+        xml_string += "            </cluster>\n"
+
+    xml_string += "         </clusters>\n"
+    xml_string += "<controlPlaneMode>UNICAST_MODE</controlPlaneMode>\n"
+    xml_string += "</vdnScope>\n"
+
+    print(xml_string)
+
+    print("Creating Transport Zone Primary...")
+
+    conn = HTTPSConnection(nsx_manager_address)
+    conn.request('POST', 'https://' + nsx_manager_address + '/api/2.0/vdn/scopes', xml_string, headers)
+
+    response = conn.getresponse()
+
+    if response.status != 201:
+        print(str(response.status) + " Transport Zone not created.  Maybe it already exists?")
+        return -1, response.read()
+    else:
+        print(str(response.status) + " Transport Zone Primary created successfully.")
+        return 0, response.read()
+
 
 def create_vtep_ip_pool(nsx_manager_address, headers, ip_pool_list, ip_pool_mask, ip_pool_gateway, number_of_hosts, ip_pool_dns, dns_suffix):
 
@@ -657,6 +800,26 @@ def get_cluster_rp(dc, name):
     cluster_obj = get_obj_in_list(name, cluster_list)
 
     return cluster_obj.resourcePool
+
+def get_cluster_moref(dc, name):
+    """
+    Get a cluster moref by its name
+    """
+    cluster_list = dc.hostFolder.childEntity
+    cluster_obj = get_obj_in_list(name, cluster_list)
+    cluster_obj_moid = cluster_obj
+
+    return cluster_obj_moid
+
+def get_dvs_moref(dc, name):
+    """
+    Get a dvs moref by its name
+    """
+    dvs_list = dc.networkFolder.childEntity
+    dvs_obj = get_obj_in_list(name, dvs_list)
+    dvs_obj_moid = dvs_obj
+
+    return dvs_obj_moid
 
 def get_network(si, dc, name):
     """
