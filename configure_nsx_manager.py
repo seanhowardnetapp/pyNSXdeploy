@@ -385,7 +385,7 @@ def deploy_nsx_controllers(headers, nsx_manager_address, controller_cluster, con
       <networkId>{4}</networkId>
       <password>{5}</password>
      </controllerSpec>
-    """.format('',controller_ip_pool_id,resource_pool_id,controller_datastore_ids[0],controller_network_id,controller_password)
+    """.format('HCI',controller_ip_pool_id,resource_pool_id,controller_datastore_ids[0],controller_network_id,controller_password)
 
 
     print("Beginning first NSX controller deployment.  This may take a while...")
@@ -413,7 +413,7 @@ def deploy_nsx_controllers(headers, nsx_manager_address, controller_cluster, con
          <networkId>{4}</networkId>
          <password>{5}</password>
         </controllerSpec>
-       """.format('', controller_ip_pool_id, resource_pool_id, controller_datastore_ids[1], controller_network_id, controller_password)
+       """.format('HCI', controller_ip_pool_id, resource_pool_id, controller_datastore_ids[1], controller_network_id, controller_password)
 
     print("Beginning second NSX controller deployment.  This may take a while...")
     print(xml_string)
@@ -440,7 +440,7 @@ def deploy_nsx_controllers(headers, nsx_manager_address, controller_cluster, con
              <networkId>{4}</networkId>
              <password>{5}</password>
             </controllerSpec>
-           """.format('', controller_ip_pool_id, resource_pool_id, controller_datastore_ids[2], controller_network_id, controller_password)
+           """.format('HCI', controller_ip_pool_id, resource_pool_id, controller_datastore_ids[2], controller_network_id, controller_password)
 
     print("Beginning third NSX controller deployment.  This may take a while...")
     print(xml_string)

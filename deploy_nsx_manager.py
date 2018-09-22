@@ -41,7 +41,7 @@ Arguments
 
 Example with parameters:
 -----------------------------------------------------
-python3 ./deploy_nsx_manager.py -s 10.217.91.253 -u administrator@vsphere.local -p Password@123 -S -ds nfsdatastore --ova-path "VMware-NSX-Manager-6.4.1-8599035.ova" -vsm_cli_passwd_0 NetApp123\!NetApp123\! -vsm_cli_en_passwd_0 NetApp123\!Netapp123\! -vsm_hostname nsxmanager1 -vsm_ip_0 10.217.88.110 -vsm_netmask_0 255.255.252.0 -vsm_gateway_0 10.217.91.254 -vsm_ntp_0 199.38.183.232 -vsm_dns1_0 8.8.8.8,8.8.8.4 -map_eth0_to_network NSX_Controllers -vmname "NSX-Manager-1" -cluster Management
+python3 ./deploy_nsx_manager.py -s 10.217.91.253 -u administrator@vsphere.local -p Password@123 -S -ds nfsdatastore --ova-path "VMware-NSX-Manager-6.4.1-8599035.ova" -vsm_cli_passwd_0 NetApp123\!NetApp123\! -vsm_cli_en_passwd_0 NetApp123\!Netapp123\! -vsm_hostname nsxmanager1 -vsm_ip_0 10.217.88.110 -vsm_netmask_0 255.255.252.0 -vsm_gateway_0 10.217.91.254 -vsm_ntp_0 199.38.183.232 -vsm_dns1_0 8.8.8.8,8.8.8.4 -map_eth0_to_network NSX_Controllers -cluster Management
 """
 
 import atexit
@@ -120,8 +120,6 @@ def setup_args():
                         help='comma separated list of DNS servers for NSX manager to use')
     parser.add_argument('-map_eth0_to_network', '--map_eth0_to_network',
                         help='Name of port group to bind NSX Managers IPV4 interface to')
-    parser.add_argument('-vmname','--vmname',
-                        help='Name of the NSX Manager VM in the vCenter inventory')
     parser.add_argument('-cluster','--cluster',
                         help='Name of the cluster you wish to deploy NSX Manager to')
     return (parser.parse_args())
@@ -166,8 +164,9 @@ def main():
     network_map = vim.OvfManager.NetworkMapping()
     network_map.name = 'Management Network'
     network_map.network = network
+    vmname = 'HCI-NSX-Manager-1'
 
-    cisp = vim.OvfManager.CreateImportSpecParams(propertyMapping=mapping,entityName=args.vmname)
+    cisp = vim.OvfManager.CreateImportSpecParams(propertyMapping=mapping,entityName=vmname)
     cisp.networkMapping.append(network_map)
 
     cisr = ovfManager.CreateImportSpec(ovf_handle.get_descriptor(),
@@ -202,7 +201,7 @@ def main():
     # Wait a little bit then try to power nsx manager on
 
     time.sleep(60)
-    vmnames = args.vmname
+    vmnames = vmname
     content = si.content
     objView = content.viewManager.CreateContainerView(content.rootFolder,
                                                       [vim.VirtualMachine],
