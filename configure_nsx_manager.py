@@ -3,6 +3,7 @@
 """
 Orignal configure_nsx_manager.py script written by Sean Howard
 hows@netapp.com
+https://github.com/seanhowardnetapp/pyNSXdeploy/
 
 This script will do the following:
 1.	register NSX Manager with vCenter

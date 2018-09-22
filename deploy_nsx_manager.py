@@ -9,6 +9,7 @@ http://www.apache.org/licenses/LICENSE-2.0.html
 
 Modified by Sean Howard
 hows@netapp.com
+https://github.com/seanhowardnetapp/pyNSXdeploy/
 
 Modified deploy_nsx_manager.py version as follows
 
