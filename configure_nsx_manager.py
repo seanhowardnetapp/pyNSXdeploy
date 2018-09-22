@@ -20,9 +20,9 @@ Assumptions and Design Decisions this script makes for you
 4.	Everything will live in a single, standard Transport Zone called "Primary"
 5.	This transport zone will be bound to a single specified DVS.  If this DVS does not have exactly 2 10Gbit uplinks, the script will fail.
 6.	Segment IDs for VXLAN will be 5000-10000
-7.	Replication type for VXLAN will be Unicast (maybe we'll expand the script to include a hybrid & multicast option later)
+7.	Replication type for VXLAN will be Unicast
 8.	CDO mode will not be enabled
-9.	No example DFW Rules, Logical Switches, ESGs, or DLRs will be created (likely we'll add this in the future as an option)
+9.	No example DFW Rules, Logical Switches, ESGs, or DLRs will be created
 
 Example with parameters:
 python3 ./configure_nsx_manager.py -nsx_manager_address 10.217.88.110 -nsx_manager_username admin -nsx_manager_password NetApp123\!NetApp123\! -s 10.217.91.253 -u administrator@vsphere.local -p Password@123 -S -VTEP_IP_Range 10.217.88.155-10.217.88.158,10.217.88.160-10.217.88.165 -VTEP_Mask /22 -VTEP_Gateway 10.217.91.254 -VTEP_DNS 8.8.8.8,8.8.8.4 -VTEP_domain lab.local -lookup_service_address 10.217.91.253 -VTEP_VLAN_ID 0 -Controller_IP_Range 10.217.88.166-10.217.88.168 -Controller_Mask /22 -Controller_Gateway 10.217.91.254 -Controller_Cluster Management -Controller_DNS 8.8.8.8,8.8.8.4 -Controller_domain lab.local -Controller_Datastores nfsdatastore -Controller_Network NSX_Controllers -Controller_Password NetApp123\!NetApp123\! -DVS Management_Cluster -cluster_prep_list Compute
@@ -518,7 +518,7 @@ def prepare_clusters_for_vxlan(headers, nsx_manager_address, cluster_moref_list,
                  <switch>
                      <objectId>{1}</objectId>
                  </switch>
-                 <mtu>1600</mtu>
+                 <mtu>9000</mtu>
                  <teaming>LOADBALANCE_SRCID</teaming>
                </configSpec>
              </resourceConfig>
