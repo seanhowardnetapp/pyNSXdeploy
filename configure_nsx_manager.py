@@ -60,49 +60,49 @@ def setup_args():
                         help='Name of datacenter to use. '
                                 'Defaults to first.')
     parser.add_argument('-nsx_manager_username', '--nsx_manager_username',
-                        help='An account in the NSX manager database that has admin rights - generally it is simply called admin')
+                        help='An account in the NSX manager database that has admin rights - generally it is simply called admin', required=True)
     parser.add_argument('-nsx_manager_password', '--nsx_manager_password',
-                        help='Password for the aforementioned NSX admin account')
+                        help='Password for the aforementioned NSX admin account', required=True)
     parser.add_argument('-nsx_manager_address', '--nsx_manager_address',
-                        help='FQDN or IP of NSX Manager')
+                        help='FQDN or IP of NSX Manager', required=True)
     parser.add_argument('-lookup_service_address', '--lookup_service_address',
-                        help='FQDN or IP of the Lookup Service host you want to register NSX Manager to - this is usually the vCenter itself unless you have an external PSC')
+                        help='FQDN or IP of the Lookup Service host you want to register NSX Manager to - this is usually the vCenter itself unless you have an external PSC', required=True)
     parser.add_argument('-cluster_prep_list', '--cluster_prep_list',
-                        help='comma separated list of cluster names that you want prepared for NSX')
+                        help='comma separated list of cluster names that you want prepared for NSX', required=True)
     parser.add_argument('-VTEP_IP_Range', '--VTEP_IP_Range',
-                        help='specified in the format 192.168.0.1-192.168.0.10.  You can specify multiple ranges separated by commas.  You must supply a minimum of 2 IPs per host that is being prepared for NSX')
+                        help='specified in the format 192.168.0.1-192.168.0.10.  You can specify multiple ranges separated by commas.  You must supply a minimum of 2 IPs per host that is being prepared for NSX', required=True)
     parser.add_argument('-VTEP_Mask', '--VTEP_Mask',
-                        help='specified in the format 255.255.255.0')
+                        help='specified in the format 255.255.255.0', required=True)
     parser.add_argument('-VTEP_Gateway', '--VTEP_Gateway',
-                        help='specified in the format 192.168.0.254')
+                        help='specified in the format 192.168.0.254', required=True)
     parser.add_argument('-VTEP_DNS', '--VTEP_DNS',
-                        help='comma separated list of DNS servers you want the VTEPs to use')
+                        help='comma separated list of DNS servers you want the VTEPs to use', required=True)
     parser.add_argument('-VTEP_domain', '--VTEP_domain',
-                        help='search domain you want the VTEPs to use, specified as something like mydomain.local')
+                        help='search domain you want the VTEPs to use, specified as something like mydomain.local', required=True)
     parser.add_argument('-VTEP_VLAN_ID', '--VTEP_VLAN_ID',
-                        help='enter 0 if you wish to use the default VLAN')
+                        help='enter 0 if you wish to use the default VLAN', required=True)
     parser.add_argument('-Controller_IP_Range', '--Controller_IP_Range',
-                        help='specified in the format 192.168.0.1-192.168.0.10. You must supply a minimum of 3 IPs total.')
+                        help='specified in the format 192.168.0.1-192.168.0.10. You must supply a minimum of 3 IPs total.', required=True)
     parser.add_argument('-Controller_Mask', '--Controller_Mask',
-                        help='specified in the format 255.255.255.0')
+                        help='specified in the format 255.255.255.0', required=True)
     parser.add_argument('-Controller_Gateway', '--Controller_Gateway',
-                        help='specified in the format 192.168.0.254')
+                        help='specified in the format 192.168.0.254', required=True)
     parser.add_argument('-Controller_Cluster', '--Controller_Cluster',
-                        help='name of the cluster you wish to deploy the 3 NSX controllers to.  Generally your management cluster.')
+                        help='name of the cluster you wish to deploy the 3 NSX controllers to.  Generally your management cluster.', required=True)
     parser.add_argument('-Controller_DNS', '--Controller_DNS',
-                        help='comma separated list of DNS servers you want the Controllers to use')
+                        help='comma separated list of DNS servers you want the Controllers to use', required=True)
     parser.add_argument('-Controller_domain', '--Controller_domain',
-                        help='search domain you want the Controllers to use, specified as something like mydomain.local')
+                        help='search domain you want the Controllers to use, specified as something like mydomain.local', required=True)
     parser.add_argument('-Controller_Datastores', '--Controller_Datastores',
-                        help='comma separated list of the datastores you want the 3 NSX controllers to deploy to.  Ideally this would be three different shared (i.e. not local host) datastores.')
+                        help='comma separated list of the datastores you want the 3 NSX controllers to deploy to.  Ideally this would be three different shared (i.e. not local host) datastores.', required=True)
     parser.add_argument('-Controller_Network', '--Controller_Network',
-                        help='Network you want the Controller VMs to connect to.  This must be a VM network on a DVS')
+                        help='Network you want the Controller VMs to connect to.  This must be a VM network on a DVS', required=True)
     parser.add_argument('-Controller_Password', '--Controller_Password',
-                        help='Password you want the controllers to use for their admin accounts.  Must be complex and at least 12 characters.')
+                        help='Password you want the controllers to use for their admin accounts.  Must be complex and at least 12 characters.', required=True)
     parser.add_argument('-DVS', '--DVS',
-                        help='name of the Distributed Virtual Switch you wish to bind the VXLAN transport zone to')
+                        help='name of the Distributed Virtual Switch you wish to bind the VXLAN transport zone to', required=True)
     parser.add_argument('-key', '--key',
-                        help='NSX License Key in the format XXXXX-XXXXX-XXXXX-XXXXX-XXXXX')
+                        help='NSX License Key in the format XXXXX-XXXXX-XXXXX-XXXXX-XXXXX', required=True)
     return(parser.parse_args())
 
 def main():
