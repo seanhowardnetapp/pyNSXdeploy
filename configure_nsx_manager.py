@@ -29,33 +29,60 @@ python3 ./configure_nsx_manager.py -nsx_manager_address 10.217.88.110 -nsx_manag
 dbc
 """
 
-import ssl
 import atexit
 import os
 import os.path
 import ssl
-import sys
 import ipaddress
 import re
 import socket
 import hashlib
 import base64
 import time
+import argparse
 
 from http.client import HTTPSConnection
 
-from tools import cli
-
 from pyvim.connect import SmartConnectNoSSL, Disconnect
 from pyVmomi import vim, vmodl
-
 
 __author__ = 'hows@netapp.com'
 
 ip_mask_re = re.compile("/\d{1,2}")
 
 def setup_args():
-    parser = cli.build_arg_parser()
+
+    parser = argparse.ArgumentParser(
+        description='Arguments needed to configure NSX Manager')
+
+    # because -h is reserved for 'help' we use -s for service
+    parser.add_argument('-s', '--host',
+                        required=True,
+                        action='store',
+                        help='vSphere service to connect to')
+
+    # because we want -p for password, we use -o for port
+    parser.add_argument('-o', '--port',
+                        type=int,
+                        default=443,
+                        action='store',
+                        help='Port to connect on')
+
+    parser.add_argument('-u', '--user',
+                        required=True,
+                        action='store',
+                        help='User name to use when connecting to host')
+
+    parser.add_argument('-p', '--password',
+                        required=True,
+                        action='store',
+                        help='Password to use when connecting to host')
+
+    parser.add_argument('-S', '--disable_ssl_verification',
+                        required=False,
+                        action='store_true',
+                        help='Disable ssl host certificate verification')
+
     parser.add_argument('-d', '--datacenter',
                         help='Name of datacenter to use. '
                                 'Defaults to first.')
@@ -869,7 +896,6 @@ def get_obj_in_list(obj_name, obj_list):
     print("Unable to find object by the name of %s in list:\n%s" %
           (o.name, map(lambda o: o.name, obj_list)))
     exit(1)
-
 
 if __name__ == "__main__":
     exit(main())

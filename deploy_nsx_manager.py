@@ -50,20 +50,49 @@ import ssl
 import sys
 import tarfile
 import time
+import argparse
 
 from threading import Timer
-from argparse import ArgumentParser
-from getpass import getpass
-from six.moves.urllib.request import Request, urlopen
 
-from tools import cli
+from six.moves.urllib.request import Request, urlopen
 
 from pyvim.connect import SmartConnectNoSSL, Disconnect
 from pyVmomi import vim, vmodl
 
 
 def setup_args():
-    parser = cli.build_arg_parser()
+
+    parser = argparse.ArgumentParser(
+        description='Arguments needed to deploy NSX Manager')
+
+    # because -h is reserved for 'help' we use -s for service
+    parser.add_argument('-s', '--host',
+                        required=True,
+                        action='store',
+                        help='vSphere service to connect to')
+
+    # because we want -p for password, we use -o for port
+    parser.add_argument('-o', '--port',
+                        type=int,
+                        default=443,
+                        action='store',
+                        help='Port to connect on')
+
+    parser.add_argument('-u', '--user',
+                        required=True,
+                        action='store',
+                        help='User name to use when connecting to host')
+
+    parser.add_argument('-p', '--password',
+                        required=True,
+                        action='store',
+                        help='Password to use when connecting to host')
+
+    parser.add_argument('-S', '--disable_ssl_verification',
+                        required=False,
+                        action='store_true',
+                        help='Disable ssl host certificate verification')
+
     parser.add_argument('--ova-path',
                         help='Path to the OVA file, can be local or a URL.')
     parser.add_argument('-d', '--datacenter',
@@ -94,7 +123,7 @@ def setup_args():
                         help='Name of the NSX Manager VM in the vCenter inventory')
     parser.add_argument('-cluster','--cluster',
                         help='Name of the cluster you wish to deploy NSX Manager to')
-    return cli.prompt_for_password(parser.parse_args())
+    return (parser.parse_args())
 
 
 def main():
@@ -182,7 +211,7 @@ def main():
 
     tasks = [vm.PowerOn() for vm in vmList if vm.name in vmnames]
 
-    print("done")
+    print("NSX Manager appliance is deployed.  Please wait 10-15 minutes before running the configure_nsx_manager.py script as it can take a while for the services to fully start.")
     
     
 def get_cluster(si, dc, name):
