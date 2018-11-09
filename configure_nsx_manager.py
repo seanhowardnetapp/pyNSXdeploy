@@ -25,8 +25,7 @@ Assumptions and Design Decisions this script makes for you
 9.	No example DFW Rules, Logical Switches, ESGs, or DLRs will be created
 
 Example with parameters:
-python3 ./configure_nsx_manager.py -nsx_manager_address 10.217.88.110 -nsx_manager_username admin -nsx_manager_password NetApp123\!NetApp123\! -s 10.217.91.253 -u administrator@vsphere.local -p Password@123 -S -VTEP_IP_Range 10.217.88.155-10.217.88.158,10.217.88.160-10.217.88.165 -VTEP_Mask /22 -VTEP_Gateway 10.217.91.254 -VTEP_DNS 8.8.8.8,8.8.8.4 -VTEP_domain lab.local -lookup_service_address 10.217.91.253 -VTEP_VLAN_ID 0 -Controller_IP_Range 10.217.88.166-10.217.88.168 -Controller_Mask /22 -Controller_Gateway 10.217.91.254 -Controller_Cluster Management -Controller_DNS 8.8.8.8,8.8.8.4 -Controller_domain lab.local -Controller_Datastores nfsdatastore -Controller_Network NSX_Controllers -Controller_Password NetApp123\!NetApp123\! -DVS Management_Cluster -cluster_prep_list Compute
-
+python ./configure_nsx_manager.py -nsx_manager_address nsxmanager1.vmwpc.local -nsx_manager_username admin -nsx_manager_password NetApp123!NetApp123! -s vmwpc-vcsa1.vmwpc.local -u administrator@vsphere.local -p NetApp123! -S -VTEP_IP_Range 10.193.138.104-10.193.138.113 -VTEP_Mask /24 -VTEP_Gateway 10.193.138.1 -VTEP_DNS 10.193.138.39 -VTEP_domain vmwpc.local -lookup_service_address vmwpc-vcsa1.vmwpc.local -VTEP_VLAN_ID 20 -Controller_IP_Range 10.193.138.101-10.193.138.103 -Controller_Mask /24 -Controller_Gateway 10.193.138.1 -Controller_Cluster Management -Controller_DNS 10.193.138.39 -Controller_domain vmwpc.local -Controller_Datastores Management_Cluster_Datastore_1,Management_Cluster_Datastore_2,Management_Cluster_Datastore_3 -Controller_Network Management_VMs -Controller_Password NetApp123!NetApp123! -DVS Compute_DVS -cluster_prep_list Compute -key XXXXX-XXXXX-XXXXX-XXXXX
 dbc
 """
 
@@ -44,7 +43,7 @@ import argparse
 
 from http.client import HTTPSConnection
 
-from pyvim.connect import SmartConnectNoSSL, Disconnect
+from pyVim.connect import SmartConnectNoSSL, Disconnect
 from pyVmomi import vim, vmodl
 
 __author__ = 'hows@netapp.com'

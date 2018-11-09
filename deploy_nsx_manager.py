@@ -57,7 +57,7 @@ from threading import Timer
 
 from six.moves.urllib.request import Request, urlopen
 
-from pyvim.connect import SmartConnectNoSSL, Disconnect
+from pyVim.connect import SmartConnectNoSSL, Disconnect
 from pyVmomi import vim, vmodl
 
 
