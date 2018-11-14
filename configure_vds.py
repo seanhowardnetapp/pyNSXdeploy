@@ -254,6 +254,11 @@ def add_dvPort_group(si, dv_switch, portgroupname, vlanid):
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.uplinkPortOrder.activeUplinkPort = "NetApp_HCI_Storage_vmnic1"
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.uplinkPortOrder.standbyUplinkPort = []
 
+    """ hang on to this
+        dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy = vim.dvs.VmwareDistributedVirtualSwitch.UplinkPortTeamingPolicy()
+        dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.policy = vim.StringPolicy(value="loadbalance_loadbased")
+    """
+
     task = dv_switch.AddDVPortgroup_Task([dv_pg_spec])
     time.sleep(5)
 
