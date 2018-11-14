@@ -43,7 +43,7 @@ import argparse
 
 from http.client import HTTPSConnection
 
-from pyVim.connect import SmartConnectNoSSL, Disconnect
+from pyvim.connect import SmartConnectNoSSL, Disconnect
 from pyVmomi import vim, vmodl
 
 __author__ = 'hows@netapp.com'
