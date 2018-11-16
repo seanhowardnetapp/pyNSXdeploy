@@ -134,6 +134,12 @@ def main():
     ''' Temporarily rename the vMotion port group on the Management DVS '''
     temporary_rename_of_vmotion_portgroup(si)
 
+    ''' Get the VLAN ID from VM Network'''
+    vlan_id_from_vm = obtain_vlan_id_from_portgroup(portgroup_moref_dict.get("VM_Network"))
+
+    ''' Temporarily rename the VM_Network port group on the Management DVS '''
+    temporary_rename_of_vm_portgroup(si)
+
     ''' Rename the one DVS we have now to "NetApp HCI Management" and rename its uplinks to "NetApp HCI Management Uplinks" '''
     rename_management_dvs(dvswitchinfo[2],portgroup_uplink_object)
 
@@ -153,6 +159,9 @@ def main():
     ''' Add vMotion to the Compute DVS '''
     add_dvPort_group(si, compute_dvswitch_object, "vMotion", vlan_id_from_vmotion)
 
+    ''' Add VM_Network to the Compute DVS '''
+    add_dvPort_group(si, compute_dvswitch_object, "VM_Network", vlan_id_from_vm)
+
     ''' Now its time to move the VMkernel IPs over to the new port groups'''
 
     content = si.RetrieveContent()
@@ -167,13 +176,13 @@ def main():
         for host in entity.host:
             print("Migrating vmnic5 / vmk1 on host:", host.name)
             migrate_vmk(host, target_portgroup, target_dvswitch,"vmk1")
-            time.sleep(5)
+            time.sleep(2)
             unassign_pnic_list = ["vmnic0","vmnic1","vmnic2","vmnic3","vmnic4"]
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
-            time.sleep(5)
+            time.sleep(2)
             assign_pnic_list = ["vmnic5"]
             assign_pnic(target_dvswitch, host, assign_pnic_list)
-            time.sleep(5)
+            time.sleep(2)
 
     ''' second Move vmnic1 and its associated vmk to the storage dvs'''
 
@@ -185,13 +194,13 @@ def main():
         for host in entity.host:
             print("Migrating vmnic1 / vmk2 on host:", host.name)
             migrate_vmk(host, target_portgroup, target_dvswitch,"vmk2")
-            time.sleep(5)
+            time.sleep(2)
             unassign_pnic_list = ["vmnic0","vmnic2","vmnic3","vmnic4"]
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
-            time.sleep(5)
+            time.sleep(2)
             assign_pnic_list = ["vmnic5","vmnic1"]
             assign_pnic(target_dvswitch, host, assign_pnic_list)
-            time.sleep(5)
+            time.sleep(2)
 
     """ Third Move vmnic0 and its associated vmk to the compute dvs"""
 
@@ -203,15 +212,44 @@ def main():
         for host in entity.host:
             print("Migrating vmnic0 / vmk3 on host:", host.name)
             migrate_vmk(host, target_portgroup, target_dvswitch,"vmk3")
-            time.sleep(5)
+            time.sleep(2)
             unassign_pnic_list = ["vmnic2","vmnic3","vmnic4"]
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
-            time.sleep(5)
+            time.sleep(2)
             assign_pnic_list = ["vmnic0"]
             assign_pnic(target_dvswitch, host, assign_pnic_list)
-            time.sleep(5)
+            time.sleep(2)
 
-    """ Fourth, move the vCenter... ugh.  Come back to that later """
+    """ Fourth, Move vmnic4 to the compute dvs"""
+
+    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Management")
+    target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Compute")
+
+    for entity in dc.hostFolder.childEntity:
+        for host in entity.host:
+            print("Migrating vmnic4 on host:", host.name)
+            time.sleep(2)
+            unassign_pnic_list = ["vmnic2", "vmnic3"]
+            unassign_pnic(source_dvswitch, host, unassign_pnic_list)
+            time.sleep(2)
+            assign_pnic_list = ["vmnic0","vmnic4"]
+            assign_pnic(target_dvswitch, host, assign_pnic_list)
+            time.sleep(2)
+
+    """ Fifth, clean up the old port groups """
+
+    list_of_pgs_to_delete = ["iSCSI-A_1","iSCSI-B_1","vMotion_1","VM_Network_1"]
+
+    for pgname in list_of_pgs_to_delete:
+        pg = get_obj(content, [vim.DistributedVirtualPortgroup], pgname)
+        delete_portgroup(pg)
+        print("Deleted portgroup", pgname)
+
+    print("DVS reconfiguration complete.")
+
+def delete_portgroup(pg):
+    task = pg.Destroy_Task()
+
 
 def obtain_vlan_id_from_portgroup(portgroup_object):
     return portgroup_object.config.defaultPortConfig.vlan.vlanId
@@ -250,6 +288,13 @@ def temporary_rename_of_vmotion_portgroup(si):
             task = portgroup.Rename("vMotion_1")
             print("Temporarily renaming portgroup vMotion to vMotion_1")
 
+def temporary_rename_of_vm_portgroup(si):
+    content = si.RetrieveContent()
+
+    for portgroup in _get_vim_objects(content, vim.dvs.DistributedVirtualPortgroup):
+        if portgroup.name == "VM_Network":
+            task = portgroup.Rename("VM_Network_1")
+            print("Temporarily renaming VM_Network to VM_Network_1")
 
 def rename_management_dvs(dvs_object,portgroup_uplink_object):
     print("Renaming " + dvs_object.name + " to NetApp HCI Management...")
