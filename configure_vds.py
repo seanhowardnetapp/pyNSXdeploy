@@ -5,6 +5,8 @@
 Orignal configure_nsx_manager.py script written by Sean Howard
 hows@netapp.com
 https://github.com/seanhowardnetapp/pyNSXdeploy/
+
+
 Arguments
 ---------
 -s [vcenter FQDN or IP]
@@ -12,6 +14,7 @@ Arguments
 -p [vcenter administrator password]
 -S [tells it to ignore SSL errors, you probably want this]
 -d [datacenter you want to use.  optional - it will just use the first one if you don't specify]
+
 """
 
 import atexit
@@ -23,7 +26,6 @@ from pyVmomi import vim, vmodl
 
 
 def setup_args():
-
     parser = argparse.ArgumentParser(
         description='Arguments needed to configure vCenter')
 
@@ -57,10 +59,9 @@ def setup_args():
 
     parser.add_argument('-d', '--datacenter',
                         help='Name of datacenter to use. '
-                                'Defaults to first.')
+                             'Defaults to first.')
 
-    return(parser.parse_args())
-
+    return (parser.parse_args())
 
 
 def main():
@@ -74,8 +75,6 @@ def main():
     except:
         print("Unable to connect to %s" % args.host)
         return 1
-
-
 
     ''' Obtain DVS, cluster, and DC information and set up variables '''
 
@@ -97,25 +96,27 @@ def main():
     ''' Check to see if there is more than one DVS, if so, cancel execution.  This means it is not a fresh environment out of NDE '''
 
     if number_of_dvswitches > 1:
-        print("More than one Distributed Virtual Switch is detected in this environment.  This script is meant to be run immediately after NDE.  Exiting...")
+        print(
+            "More than one Distributed Virtual Switch is detected in this environment.  This script is meant to be run immediately after NDE.  Exiting...")
         return 1
 
     ''' Check to see if there is more than one Cluster, if so, cancel execution.  This means it is not a fresh environment out of NDE '''
 
     if number_of_clusters > 1:
-        print("More than one Cluster is detected in this environment.  This script is meant to be run immediately after NDE.  Exiting...")
+        print(
+            "More than one Cluster is detected in this environment.  This script is meant to be run immediately after NDE.  Exiting...")
         return 1
 
     ''' Build a dictionary of the objects for all the port groups '''
     portgroup_info = list_portgroups_initial(si)
     portgroup_moref_dict = portgroup_info[0]
     portgroup_name_flag = portgroup_info[1]
-    portgroup_uplink_object = portgroup_moref_dict.get("NetApp HCI Uplinks")
 
     ''' Check to see if the portgroup_name_flag is nonzero.  If so, it means list_portgroups() found a portgroup name that shouldn't exist.  Again this means its not a fresh from NDE setup '''
 
     if portgroup_name_flag == 1:
-        print("Found a portgroup name that should not exist.  This script is meant to be run immediately after NDE.  Exiting...")
+        print(
+            "Found a portgroup name that should not exist.  This script is meant to be run immediately after NDE.  Exiting...")
         print("Offending Portgroup: " + portgroup_info[2])
         return 1
 
@@ -137,14 +138,26 @@ def main():
     ''' Temporarily rename the VM_Network port group on the Management DVS '''
     temporary_rename_of_vm_portgroup(si)
 
-    ''' Rename the one DVS we have now to "NetApp HCI Management" and rename its uplinks to "NetApp HCI Management Uplinks" '''
-    rename_management_dvs(dvswitchinfo[2],portgroup_uplink_object)
+    ''' Get the VLAN ID from the C&C PGs'''
+    vlan_id_from_Management_Network = obtain_vlan_id_from_portgroup(portgroup_moref_dict.get("Management Network"))
+    vlan_id_from_HCI_Internal_vCenter_Network = obtain_vlan_id_from_portgroup(
+        portgroup_moref_dict.get("HCI_Internal_vCenter_Network"))
+    vlan_id_from_HCI_Internal_mNode_Network = obtain_vlan_id_from_portgroup(
+        portgroup_moref_dict.get("HCI_Internal_mNode_Network"))
+    vlan_id_from_HCI_Internal_OTS_Network = obtain_vlan_id_from_portgroup(
+        portgroup_moref_dict.get("HCI_Internal_OTS_Network"))
+
+    ''' Temporarily rename the C&C port groups on the Management DVS '''
+    temporary_rename_of_cc_portgroups(si)
+
+    ''' Create a dvs called "NetApp HCI Management" and attach it to the cluster '''
+    management_dvswitch_object = create_dvSwitch(si, network_folder, clusterinfo[2], "NetApp HCI Management")
 
     ''' Create a dvs called "NetApp HCI Storage" and attach it to the cluster '''
-    storage_dvswitch_object = create_dvSwitch(si,network_folder,clusterinfo[2],"NetApp HCI Storage")
+    storage_dvswitch_object = create_dvSwitch(si, network_folder, clusterinfo[2], "NetApp HCI Storage")
 
     ''' Create a dvs called "NetApp HCI Compute" and attach it to the cluster '''
-    compute_dvswitch_object = create_dvSwitch(si,network_folder,clusterinfo[2],"NetApp HCI Compute")
+    compute_dvswitch_object = create_dvSwitch(si, network_folder, clusterinfo[2], "NetApp HCI Compute")
 
     ''' Rename the uplink portgroups '''
     rename_uplink_portgroups(si)
@@ -159,93 +172,164 @@ def main():
     ''' Add VM_Network to the Compute DVS '''
     add_dvPort_group(si, compute_dvswitch_object, "VM_Network", vlan_id_from_vm)
 
+    ''' Add Management Network to the Management DVS'''
+    add_dvPort_group(si, management_dvswitch_object, "Management Network", vlan_id_from_Management_Network)
+
+    ''' Add C&C port groups '''
+    add_dvPort_group(si, management_dvswitch_object, "HCI_Internal_vCenter_Network",
+                     vlan_id_from_HCI_Internal_vCenter_Network)
+    add_dvPort_group(si, management_dvswitch_object, "HCI_Internal_OTS_Network", vlan_id_from_HCI_Internal_OTS_Network)
+    add_dvPort_group(si, management_dvswitch_object, "HCI_Internal_mNode_Network",
+                     vlan_id_from_HCI_Internal_mNode_Network)
+
     ''' Now its time to move the VMkernel IPs over to the new port groups'''
 
     content = si.RetrieveContent()
 
-    ''' First Move vmnic5 and its associated vmk to the storage dvs'''
+    """ move vmnic3 to the new Management DVS """
+    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI DVS")
+    target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Management")
 
-    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Management")
+    for entity in dc.hostFolder.childEntity:
+        for host in entity.host:
+            print("Migrating vmnic3 on host:", host.name)
+            time.sleep(5)
+            unassign_pnic_list = ["vmnic0", "vmnic1", "vmnic2", "vmnic4", "vmnic5"]
+            unassign_pnic(source_dvswitch, host, unassign_pnic_list)
+            time.sleep(5)
+            assign_pnic_list = ["vmnic3"]
+            assign_pnic(target_dvswitch, host, assign_pnic_list)
+            time.sleep(5)
+
+    ''' relocate the c&c vms '''
+    list_of_vms_to_relocate = ["vCenter-Server-Appliance", "NetApp-Management-Node",
+                               "File Services powered by ONTAP-01"]
+
+    for vmname in list_of_vms_to_relocate:
+        vm = get_obj(content, [vim.VirtualMachine], vmname)
+        vmtype = str(type(vm))
+
+        if vmtype == "<class 'pyVmomi.VmomiSupport.vim.VirtualMachine'>" and vmname == "vCenter-Server-Appliance":
+            network = get_obj(content, [vim.DistributedVirtualPortgroup], "HCI_Internal_vCenter_Network")
+            move_vm(vm, network)
+            print("Successfully moved", vmname, "to new Management DVS")
+
+        if vmtype == "<class 'pyVmomi.VmomiSupport.vim.VirtualMachine'>" and vmname == "NetApp-Management-Node":
+            network = get_obj(content, [vim.DistributedVirtualPortgroup], "HCI_Internal_mNode_Network")
+            move_vm(vm, network)
+            print("Successfully moved", vmname, "to new Management DVS")
+
+        if vmtype == "<class 'pyVmomi.VmomiSupport.vim.VirtualMachine'>" and vmname == "File Services powered by ONTAP-01":
+            network = get_obj(content, [vim.DistributedVirtualPortgroup], "HCI_Internal_OTS_Network")
+            move_vm(vm, network)
+            print("Successfully moved", vmname, "to new Management DVS")
+
+    target_portgroup = get_obj(content, [vim.DistributedVirtualPortgroup], "Management Network")
+
+    for entity in dc.hostFolder.childEntity:
+        for host in entity.host:
+            print("Migrating vmnic2 / vmk0 on host:", host.name)
+            migrate_vmk(host, target_portgroup, target_dvswitch, "vmk0")
+            time.sleep(5)
+            unassign_pnic_list = ["vmnic0", "vmnic1", "vmnic4", "vmnic5"]
+            unassign_pnic(source_dvswitch, host, unassign_pnic_list)
+            time.sleep(5)
+            assign_pnic_list = ["vmnic2", "vmnic3"]
+            assign_pnic(target_dvswitch, host, assign_pnic_list)
+            time.sleep(5)
+
+    ''' Move vmnic5 and its associated vmk to the storage dvs'''
+
+    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI DVS")
     target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Storage")
     target_portgroup = get_obj(content, [vim.DistributedVirtualPortgroup], "iSCSI-A")
 
     for entity in dc.hostFolder.childEntity:
         for host in entity.host:
             print("Migrating vmnic5 / vmk1 on host:", host.name)
-            migrate_vmk(host, target_portgroup, target_dvswitch,"vmk1")
-            time.sleep(2)
-            unassign_pnic_list = ["vmnic0","vmnic1","vmnic2","vmnic3","vmnic4"]
+            migrate_vmk(host, target_portgroup, target_dvswitch, "vmk1")
+            time.sleep(5)
+            unassign_pnic_list = ["vmnic0", "vmnic1", "vmnic4"]
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
-            time.sleep(2)
+            time.sleep(5)
             assign_pnic_list = ["vmnic5"]
             assign_pnic(target_dvswitch, host, assign_pnic_list)
-            time.sleep(2)
+            time.sleep(5)
 
-    ''' second Move vmnic1 and its associated vmk to the storage dvs'''
+    ''' Move vmnic1 and its associated vmk to the storage dvs'''
 
-    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Management")
+    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI DVS")
     target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Storage")
     target_portgroup = get_obj(content, [vim.DistributedVirtualPortgroup], "iSCSI-B")
 
     for entity in dc.hostFolder.childEntity:
         for host in entity.host:
             print("Migrating vmnic1 / vmk2 on host:", host.name)
-            migrate_vmk(host, target_portgroup, target_dvswitch,"vmk2")
-            time.sleep(2)
-            unassign_pnic_list = ["vmnic0","vmnic2","vmnic3","vmnic4"]
+            migrate_vmk(host, target_portgroup, target_dvswitch, "vmk2")
+            time.sleep(5)
+            unassign_pnic_list = ["vmnic0", "vmnic4"]
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
-            time.sleep(2)
-            assign_pnic_list = ["vmnic5","vmnic1"]
+            time.sleep(5)
+            assign_pnic_list = ["vmnic5", "vmnic1"]
             assign_pnic(target_dvswitch, host, assign_pnic_list)
-            time.sleep(2)
+            time.sleep(5)
 
-    """ Third Move vmnic0 and its associated vmk to the compute dvs"""
+    """ Move vmnic0 and its associated vmk to the compute dvs"""
 
-    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Management")
+    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI DVS")
     target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Compute")
     target_portgroup = get_obj(content, [vim.DistributedVirtualPortgroup], "vMotion")
 
     for entity in dc.hostFolder.childEntity:
         for host in entity.host:
             print("Migrating vmnic0 / vmk3 on host:", host.name)
-            migrate_vmk(host, target_portgroup, target_dvswitch,"vmk3")
-            time.sleep(2)
-            unassign_pnic_list = ["vmnic2","vmnic3","vmnic4"]
+            migrate_vmk(host, target_portgroup, target_dvswitch, "vmk3")
+            time.sleep(5)
+            unassign_pnic_list = ["vmnic4"]
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
-            time.sleep(2)
+            time.sleep(5)
             assign_pnic_list = ["vmnic0"]
             assign_pnic(target_dvswitch, host, assign_pnic_list)
-            time.sleep(2)
+            time.sleep(5)
 
-    """ Fourth, Move vmnic4 to the compute dvs"""
+    """ Move vmnic4 to the compute dvs"""
 
-    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Management")
+    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI DVS")
     target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Compute")
 
     for entity in dc.hostFolder.childEntity:
         for host in entity.host:
             print("Migrating vmnic4 on host:", host.name)
-            time.sleep(2)
-            unassign_pnic_list = ["vmnic2", "vmnic3"]
+            time.sleep(5)
+            unassign_pnic_list = []
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
-            time.sleep(2)
-            assign_pnic_list = ["vmnic0","vmnic4"]
+            time.sleep(5)
+            assign_pnic_list = ["vmnic0", "vmnic4"]
             assign_pnic(target_dvswitch, host, assign_pnic_list)
-            time.sleep(2)
+            time.sleep(5)
 
-    """ Fifth, clean up the old port groups """
+    """
+    clean up the old port groups
 
-    list_of_pgs_to_delete = ["iSCSI-A_1","iSCSI-B_1","vMotion_1","VM_Network_1"]
+    list_of_pgs_to_delete = ["iSCSI-A_1","iSCSI-B_1","vMotion_1","VM_Network_1","HCI_Internal_vCenter_Network_1","HCI_Internal_mNode_Network_1","HCI_Internal_OTS_Network_1","Management Network_1"]
 
     for pgname in list_of_pgs_to_delete:
         pg = get_obj(content, [vim.DistributedVirtualPortgroup], pgname)
         delete_portgroup(pg)
         print("Deleted portgroup", pgname)
+    """
+
+    delete_dvs(dvswitchinfo[2])
 
     print("DVS reconfiguration complete.")
 
+
 def delete_portgroup(pg):
     task = pg.Destroy_Task()
+
+
+def delete_dvs(dvs):
+    task = dvs.Destroy_Task()
 
 
 def obtain_vlan_id_from_portgroup(portgroup_object):
@@ -264,6 +348,10 @@ def rename_uplink_portgroups(si):
             task = portgroup.Rename("NetApp HCI Storage Uplinks")
             print("Changing Uplink Port Group Name to 'NetApp HCI Storage Uplinks'")
 
+        if portgroup.name[:16] == "NetApp HCI Manag":
+            task = portgroup.Rename("NetApp HCI Management Uplinks")
+            print("Changing Uplink Port Group Name to 'NetApp HCI Management Uplinks'")
+
 
 def temporary_rename_of_iscsi_portgroups(si):
     content = si.RetrieveContent()
@@ -277,6 +365,7 @@ def temporary_rename_of_iscsi_portgroups(si):
             task = portgroup.Rename("iSCSI-B_1")
             print("Temporarily renaming portgroup iSCSI-B to iSCSI-B_1")
 
+
 def temporary_rename_of_vmotion_portgroup(si):
     content = si.RetrieveContent()
 
@@ -284,6 +373,7 @@ def temporary_rename_of_vmotion_portgroup(si):
         if portgroup.name == "vMotion":
             task = portgroup.Rename("vMotion_1")
             print("Temporarily renaming portgroup vMotion to vMotion_1")
+
 
 def temporary_rename_of_vm_portgroup(si):
     content = si.RetrieveContent()
@@ -293,11 +383,29 @@ def temporary_rename_of_vm_portgroup(si):
             task = portgroup.Rename("VM_Network_1")
             print("Temporarily renaming VM_Network to VM_Network_1")
 
-def rename_management_dvs(dvs_object,portgroup_uplink_object):
-    print("Renaming " + dvs_object.name + " to NetApp HCI Management...")
-    task = dvs_object.Rename("NetApp HCI Management")
-    print("Renaming " + portgroup_uplink_object.name + " to NetApp HCI Management Uplinks...")
-    task = portgroup_uplink_object.Rename("NetApp HCI Management Uplinks")
+
+def temporary_rename_of_cc_portgroups(si):
+    content = si.RetrieveContent()
+
+    for portgroup in _get_vim_objects(content, vim.dvs.DistributedVirtualPortgroup):
+        if portgroup.name == "HCI_Internal_vCenter_Network":
+            task = portgroup.Rename("HCI_Internal_vCenter_Network_1")
+            print("Temporarily renaming HCI_Internal_vCenter_Network to HCI_Internal_vCenter_Network_1")
+
+    for portgroup in _get_vim_objects(content, vim.dvs.DistributedVirtualPortgroup):
+        if portgroup.name == "HCI_Internal_OTS_Network":
+            task = portgroup.Rename("HCI_Internal_OTS_Network_1")
+            print("Temporarily renaming HCI_Internal_OTS_Network to HCI_Internal_OTS_Network_1")
+
+    for portgroup in _get_vim_objects(content, vim.dvs.DistributedVirtualPortgroup):
+        if portgroup.name == "HCI_Internal_mNode_Network":
+            task = portgroup.Rename("HCI_Internal_mNode_Network_1")
+            print("Temporarily renaming HCI_Internal_mNode_Network to HCI_Internal_mNode_Network_1")
+
+    for portgroup in _get_vim_objects(content, vim.dvs.DistributedVirtualPortgroup):
+        if portgroup.name == "Management Network":
+            task = portgroup.Rename("Management Network_1")
+            print("Temporarily renaming Management Network to Management Network_1")
 
 
 def create_dvSwitch(si, network_folder, cluster, dvswitchname):
@@ -319,6 +427,10 @@ def create_dvSwitch(si, network_folder, cluster, dvswitchname):
     if dvswitchname == "NetApp HCI Compute":
         uplink_port_names.append("NetApp_HCI_Virtualization_vmnic0")
         uplink_port_names.append("NetApp_HCI_Virtualization_vmnic4")
+
+    if dvswitchname == "NetApp HCI Management":
+        uplink_port_names.append("NetApp_HCI_Virtualization_vmnic2")
+        uplink_port_names.append("NetApp_HCI_Virtualization_vmnic3")
 
     for host in hosts:
         dvs_config_spec.uplinkPortPolicy.uplinkPortName = uplink_port_names
@@ -382,8 +494,8 @@ def add_dvPort_group(si, dv_switch, portgroupname, vlanid):
 
     print("Successfully created DV Port Group", portgroupname)
 
-def get_obj(content, vimtype, name):
 
+def get_obj(content, vimtype, name):
     ''' Get the vsphere object associated with a given text name '''
     obj = None
     container = content.viewManager.CreateContainerView(content.rootFolder, vimtype, True)
@@ -406,10 +518,10 @@ def list_portgroups_initial(si):
 
         ''' Check to see that the port group is one that should exist, if you find a weird one, set the flag'''
         if portgroup.name != "NetApp HCI Uplinks" and portgroup.name != "VM_Network" and portgroup.name != "HCI_Internal_vCenter_Network" and portgroup.name != "HCI_Internal_OTS_Network" and portgroup.name != "HCI_Internal_mNode_Network" and portgroup.name != "vMotion" and portgroup.name != "Management Network" and portgroup.name != "iSCSI-A" and portgroup.name != "iSCSI-B":
-            portgroup_name_flag=1
-            offending_portgroup=portgroup.name
+            portgroup_name_flag = 1
+            offending_portgroup = portgroup.name
 
-    return (portgroup_moref_dict,portgroup_name_flag,offending_portgroup)
+    return (portgroup_moref_dict, portgroup_name_flag, offending_portgroup)
 
 
 def list_dvswitches(si):
@@ -423,7 +535,7 @@ def list_dvswitches(si):
         dvswitchname = dvswitch.name
         dvswitchmorefraw = dvswitch
 
-    return (number_of_dvswitches,dvswitchname,dvswitchmorefraw)
+    return (number_of_dvswitches, dvswitchname, dvswitchmorefraw)
 
 
 def list_clusters(si):
@@ -437,7 +549,7 @@ def list_clusters(si):
         clustername = cluster.name
         clustermorefraw = cluster
 
-    return (number_of_clusters,clustername,clustermorefraw)
+    return (number_of_clusters, clustername, clustermorefraw)
 
 
 def _get_vim_objects(content, vim_type):
@@ -455,7 +567,8 @@ def get_dc(si, name):
         if dc.name == name:
             return dc
 
-def create_host_vnic_config(target_portgroup,target_dvswitch,vmk):
+
+def create_host_vnic_config(target_portgroup, target_dvswitch, vmk):
     host_vnic_config = vim.host.VirtualNic.Config()
     host_vnic_config.spec = vim.host.VirtualNic.Specification()
 
@@ -469,10 +582,10 @@ def create_host_vnic_config(target_portgroup,target_dvswitch,vmk):
     return host_vnic_config
 
 
-def migrate_vmk(host,target_portgroup,target_dvswitch,vmk):
+def migrate_vmk(host, target_portgroup, target_dvswitch, vmk):
     host_network_system = host.configManager.networkSystem
     config = vim.host.NetworkConfig()
-    config.vnic = [create_host_vnic_config(target_portgroup,target_dvswitch,vmk)]
+    config.vnic = [create_host_vnic_config(target_portgroup, target_dvswitch, vmk)]
     host_network_system.UpdateNetworkConfig(config, "modify")
 
 
@@ -485,7 +598,7 @@ def assign_pnic(dvs, host, pnic_device_list):
     dvs_host_config.backing = vim.dvs.HostMember.PnicBacking()
 
     for pnic in pnic_device_list:
-        dvs_host_config.backing.pnicSpec.append (vim.dvs.HostMember.PnicSpec(pnicDevice=pnic))
+        dvs_host_config.backing.pnicSpec.append(vim.dvs.HostMember.PnicSpec(pnicDevice=pnic))
 
     dvs_host_config.host = host
     dvs_host_configs.append(dvs_host_config)
@@ -502,12 +615,39 @@ def unassign_pnic(dvs, host, pnic_device_list):
     dvs_host_config.backing = vim.dvs.HostMember.PnicBacking()
 
     for pnic in pnic_device_list:
-        dvs_host_config.backing.pnicSpec.append (vim.dvs.HostMember.PnicSpec(pnicDevice=pnic))
+        dvs_host_config.backing.pnicSpec.append(vim.dvs.HostMember.PnicSpec(pnicDevice=pnic))
 
     dvs_host_config.host = host
     dvs_host_configs.append(dvs_host_config)
     dvs_config_spec.host = dvs_host_configs
     task = dvs.ReconfigureDvs_Task(dvs_config_spec)
 
+
+def move_vm(vm, network):
+    device_change = []
+
+    for device in vm.config.hardware.device:
+        if isinstance(device, vim.vm.device.VirtualEthernetCard):
+            nicspec = vim.vm.device.VirtualDeviceSpec()
+            nicspec.operation = vim.vm.device.VirtualDeviceSpec.Operation.edit
+            nicspec.device = device
+            nicspec.device.wakeOnLanEnabled = True
+
+            dvs_port_connection = vim.dvs.PortConnection()
+            dvs_port_connection.portgroupKey = network.key
+            dvs_port_connection.switchUuid = network.config.distributedVirtualSwitch.uuid
+            nicspec.device.backing = vim.vm.device.VirtualEthernetCard.DistributedVirtualPortBackingInfo()
+            nicspec.device.backing.port = dvs_port_connection
+
+            nicspec.device.connectable = vim.vm.device.VirtualDevice.ConnectInfo()
+            nicspec.device.connectable.startConnected = True
+            nicspec.device.connectable.allowGuestControl = True
+            device_change.append(nicspec)
+            break
+
+    config_spec = vim.vm.ConfigSpec(deviceChange=device_change)
+    task = vm.ReconfigVM_Task(config_spec)
+
+
 if __name__ == "__main__":
-exit(main())
+    exit(main())
