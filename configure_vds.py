@@ -2,10 +2,12 @@
 
 
 """
-Orignal configure_nsx_manager.py script written by Sean Howard
+Orignal configure_vds.py script written by Sean Howard
 hows@netapp.com
 https://github.com/seanhowardnetapp/pyNSXdeploy/
 
+This script will only work right if run immediately after NDE on a 6 cable setup.  The idea is to break up the single
+big vswitch into 3 separate ones each with 2 cables.
 
 Arguments
 ---------
@@ -93,18 +95,22 @@ def main():
 
     network_folder = dc.networkFolder
 
-    ''' Check to see if there is more than one DVS, if so, cancel execution.  This means it is not a fresh environment out of NDE '''
+    ''' Check to see if there is more than one DVS, if so, cancel execution.  This means it is not a fresh environment 
+    out of NDE '''
 
     if number_of_dvswitches > 1:
         print(
-            "More than one Distributed Virtual Switch is detected in this environment.  This script is meant to be run immediately after NDE.  Exiting...")
+            "More than one Distributed Virtual Switch is detected in this environment.  This script is meant to be run "
+            "immediately after NDE.  Exiting...")
         return 1
 
-    ''' Check to see if there is more than one Cluster, if so, cancel execution.  This means it is not a fresh environment out of NDE '''
+    ''' Check to see if there is more than one Cluster, if so, cancel execution.  This means it is not a fresh 
+    environment out of NDE '''
 
     if number_of_clusters > 1:
         print(
-            "More than one Cluster is detected in this environment.  This script is meant to be run immediately after NDE.  Exiting...")
+            "More than one Cluster is detected in this environment.  This script is meant to be run immediately after "
+            "NDE.  Exiting...")
         return 1
 
     ''' Build a dictionary of the objects for all the port groups '''
@@ -112,11 +118,13 @@ def main():
     portgroup_moref_dict = portgroup_info[0]
     portgroup_name_flag = portgroup_info[1]
 
-    ''' Check to see if the portgroup_name_flag is nonzero.  If so, it means list_portgroups() found a portgroup name that shouldn't exist.  Again this means its not a fresh from NDE setup '''
+    ''' Check to see if the portgroup_name_flag is nonzero.  If so, it means list_portgroups() found a portgroup name 
+    that shouldn't exist.  Again this means its not a fresh from NDE setup '''
 
     if portgroup_name_flag == 1:
         print(
-            "Found a portgroup name that should not exist.  This script is meant to be run immediately after NDE.  Exiting...")
+            "Found a portgroup name that should not exist.  This script is meant to be run immediately after NDE.  "
+            "Exiting...")
         print("Offending Portgroup: " + portgroup_info[2])
         return 1
 
@@ -484,10 +492,25 @@ def add_dvPort_group(si, dv_switch, portgroupname, vlanid):
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.uplinkPortOrder.activeUplinkPort = "NetApp_HCI_Storage_vmnic1"
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.uplinkPortOrder.standbyUplinkPort = []
 
-    """ hang on to this
+    if portgroupname == "vMotion":
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy = vim.dvs.VmwareDistributedVirtualSwitch.UplinkPortTeamingPolicy()
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.policy = vim.StringPolicy(value="loadbalance_loadbased")
-    """
+
+    if portgroupname == "HCI_Internal_vCenter_Network_1":
+        dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy = vim.dvs.VmwareDistributedVirtualSwitch.UplinkPortTeamingPolicy()
+        dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.policy = vim.StringPolicy(value="loadbalance_loadbased")
+
+    if portgroupname == "HCI_Internal_OTS_Network_1":
+        dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy = vim.dvs.VmwareDistributedVirtualSwitch.UplinkPortTeamingPolicy()
+        dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.policy = vim.StringPolicy(value="loadbalance_loadbased")
+
+    if portgroupname == "HCI_Internal_mNode_Network_1":
+        dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy = vim.dvs.VmwareDistributedVirtualSwitch.UplinkPortTeamingPolicy()
+        dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.policy = vim.StringPolicy(value="loadbalance_loadbased")
+
+    if portgroupname == "Management Network":
+        dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy = vim.dvs.VmwareDistributedVirtualSwitch.UplinkPortTeamingPolicy()
+        dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.policy = vim.StringPolicy(value="loadbalance_loadbased")
 
     task = dv_switch.AddDVPortgroup_Task([dv_pg_spec])
     time.sleep(5)
