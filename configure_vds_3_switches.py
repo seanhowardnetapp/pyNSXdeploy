@@ -183,7 +183,59 @@ def main():
 
     content = si.RetrieveContent()
 
-    ''' First Move vmnic5 and its associated vmk to the storage dvs'''
+    """ move vmnic3 to the new Management DVS """
+    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI DVS")
+    target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Management")
+
+    for entity in dc.hostFolder.childEntity:
+        for host in entity.host:
+            print("Migrating vmnic3 on host:", host.name)
+            time.sleep(5)
+            unassign_pnic_list = ["vmnic0","vmnic1","vmnic2","vmnnic4","vmnic5"]
+            unassign_pnic(source_dvswitch, host, unassign_pnic_list)
+            time.sleep(5)
+            assign_pnic_list = ["vmnic3"]
+            assign_pnic(target_dvswitch, host, assign_pnic_list)
+            time.sleep(5)
+
+    ''' relocate the c&c vms '''
+    list_of_vms_to_relocate = ["vCenter-Server-Appliance", "NetApp-Management-Node",
+                               "File Services powered by ONTAP-01"]
+
+    for vmname in list_of_vms_to_relocate:
+        vm = get_obj(content, [vim.VirtualMachine], vmname)
+        vmtype = str(type(vm))
+
+        if vmtype == "<class 'pyVmomi.VmomiSupport.vim.VirtualMachine'>" and vmname == "vCenter-Server-Appliance":
+            network = get_obj(content, [vim.DistributedVirtualPortgroup], "HCI_Internal_vCenter_Network")
+            move_vm(vm, network)
+            print("Successfully moved", vmname, "to new Management DVS")
+
+        if vmtype == "<class 'pyVmomi.VmomiSupport.vim.VirtualMachine'>" and vmname == "NetApp-Management-Node":
+            network = get_obj(content, [vim.DistributedVirtualPortgroup], "HCI_Internal_mNode_Network")
+            move_vm(vm, network)
+            print("Successfully moved", vmname, "to new Management DVS")
+
+        if vmtype == "<class 'pyVmomi.VmomiSupport.vim.VirtualMachine'>" and vmname == "File Services powered by ONTAP-01":
+            network = get_obj(content, [vim.DistributedVirtualPortgroup], "HCI_Internal_OTS_Network")
+            move_vm(vm, network)
+            print("Successfully moved", vmname, "to new Management DVS")
+
+    target_portgroup = get_obj(content, [vim.DistributedVirtualPortgroup], "Management Network")
+
+    for entity in dc.hostFolder.childEntity:
+        for host in entity.host:
+            print("Migrating vmnic2 / vmk0 on host:", host.name)
+            migrate_vmk(host, target_portgroup, target_dvswitch, "vmk0")
+            time.sleep(5)
+            unassign_pnic_list = ["vmnic0","vmnic1","vmnnic4","vmnic5"]
+            unassign_pnic(source_dvswitch, host, unassign_pnic_list)
+            time.sleep(5)
+            assign_pnic_list = ["vmnic2", "vmnic3"]
+            assign_pnic(target_dvswitch, host, assign_pnic_list)
+            time.sleep(5)
+
+    ''' Move vmnic5 and its associated vmk to the storage dvs'''
 
     source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI DVS")
     target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Storage")
@@ -194,14 +246,14 @@ def main():
             print("Migrating vmnic5 / vmk1 on host:", host.name)
             migrate_vmk(host, target_portgroup, target_dvswitch,"vmk1")
             time.sleep(5)
-            unassign_pnic_list = ["vmnic0","vmnic1","vmnic2","vmnic3","vmnic4"]
+            unassign_pnic_list = ["vmnic0","vmnic1","vmnic4"]
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
             time.sleep(5)
             assign_pnic_list = ["vmnic5"]
             assign_pnic(target_dvswitch, host, assign_pnic_list)
             time.sleep(5)
 
-    ''' second Move vmnic1 and its associated vmk to the storage dvs'''
+    ''' Move vmnic1 and its associated vmk to the storage dvs'''
 
     source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI DVS")
     target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Storage")
@@ -212,14 +264,14 @@ def main():
             print("Migrating vmnic1 / vmk2 on host:", host.name)
             migrate_vmk(host, target_portgroup, target_dvswitch,"vmk2")
             time.sleep(5)
-            unassign_pnic_list = ["vmnic0","vmnic2","vmnic3","vmnic4"]
+            unassign_pnic_list = ["vmnic0","vmnic4"]
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
             time.sleep(5)
             assign_pnic_list = ["vmnic5","vmnic1"]
             assign_pnic(target_dvswitch, host, assign_pnic_list)
             time.sleep(5)
 
-    """ Third Move vmnic0 and its associated vmk to the compute dvs"""
+    """ Move vmnic0 and its associated vmk to the compute dvs"""
 
     source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI DVS")
     target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Compute")
@@ -230,14 +282,14 @@ def main():
             print("Migrating vmnic0 / vmk3 on host:", host.name)
             migrate_vmk(host, target_portgroup, target_dvswitch,"vmk3")
             time.sleep(5)
-            unassign_pnic_list = ["vmnic2","vmnic3","vmnic4"]
+            unassign_pnic_list = ["vmnic4"]
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
             time.sleep(5)
             assign_pnic_list = ["vmnic0"]
             assign_pnic(target_dvswitch, host, assign_pnic_list)
             time.sleep(5)
 
-    """ Fourth, Move vmnic4 to the compute dvs"""
+    """ Move vmnic4 to the compute dvs"""
 
     source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI DVS")
     target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Compute")
@@ -246,7 +298,7 @@ def main():
         for host in entity.host:
             print("Migrating vmnic4 on host:", host.name)
             time.sleep(5)
-            unassign_pnic_list = ["vmnic2", "vmnic3"]
+            unassign_pnic_list = []
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
             time.sleep(5)
             assign_pnic_list = ["vmnic0","vmnic4"]
@@ -254,60 +306,8 @@ def main():
             time.sleep(5)
 
 
-    """ Sixth, move vmnic2 to the new Management DVS """
-    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI DVS")
-    target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Management")
-
-    for entity in dc.hostFolder.childEntity:
-        for host in entity.host:
-            print("Migrating vmnic2 on host:", host.name)
-            time.sleep(5)
-            unassign_pnic_list = ["vmnic3"]
-            unassign_pnic(source_dvswitch, host, unassign_pnic_list)
-            time.sleep(5)
-            assign_pnic_list = ["vmnic2"]
-            assign_pnic(target_dvswitch, host, assign_pnic_list)
-            time.sleep(5)
-
-    ''' relocate the c&c vms '''
-    list_of_vms_to_relocate = ["vCenter-Server-Appliance","NetApp-Management-Node","File Services powered by ONTAP-01"]
-
-
-    for vmname in list_of_vms_to_relocate:
-        vm = get_obj(content, [vim.VirtualMachine], vmname)
-        vmtype=str(type(vm))
-
-        if vmtype == "<class 'pyVmomi.VmomiSupport.vim.VirtualMachine'>" and vmname=="vCenter-Server-Appliance":
-            network = get_obj(content, [vim.DistributedVirtualPortgroup], "HCI_Internal_vCenter_Network")
-            move_vm(vm,network)
-            print("Successfully moved", vmname, "to new Management DVS")
-
-        if vmtype == "<class 'pyVmomi.VmomiSupport.vim.VirtualMachine'>" and vmname=="NetApp-Management-Node":
-            network = get_obj(content, [vim.DistributedVirtualPortgroup], "HCI_Internal_mNode_Network")
-            move_vm(vm,network)
-            print("Successfully moved", vmname, "to new Management DVS")
-
-        if vmtype == "<class 'pyVmomi.VmomiSupport.vim.VirtualMachine'>" and vmname=="File Services powered by ONTAP-01":
-            network = get_obj(content, [vim.DistributedVirtualPortgroup], "HCI_Internal_OTS_Network")
-            move_vm(vm,network)
-            print("Successfully moved", vmname, "to new Management DVS")
-
-    """ Now move the vCenter and the last vminc off the original DVS.  Doing this last because if vCenter looses comm and it rolls back most of the work still is done """
-    target_portgroup = get_obj(content, [vim.DistributedVirtualPortgroup], "Management Network")
-
-    for entity in dc.hostFolder.childEntity:
-        for host in entity.host:
-            print("Migrating vmnic3 on host:", host.name)
-            migrate_vmk(host, target_portgroup, target_dvswitch, "vmk0")
-            time.sleep(5)
-            unassign_pnic_list = []
-            unassign_pnic(source_dvswitch, host, unassign_pnic_list)
-            time.sleep(5)
-            assign_pnic_list = ["vmnic2", "vmnic3"]
-            assign_pnic(target_dvswitch, host, assign_pnic_list)
-            time.sleep(5)
-
-    """ Last thing, clean up the old port groups
+    """
+    clean up the old port groups
 
     list_of_pgs_to_delete = ["iSCSI-A_1","iSCSI-B_1","vMotion_1","VM_Network_1","HCI_Internal_vCenter_Network_1","HCI_Internal_mNode_Network_1","HCI_Internal_OTS_Network_1","Management Network_1"]
 
@@ -315,10 +315,11 @@ def main():
         pg = get_obj(content, [vim.DistributedVirtualPortgroup], pgname)
         delete_portgroup(pg)
         print("Deleted portgroup", pgname)
-    
+    """
+
     delete_dvs(dvswitchinfo[2])
     
-    """
+
 
     print("DVS reconfiguration complete.")
 
