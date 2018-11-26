@@ -426,6 +426,8 @@ def create_dvSwitch(si, network_folder, cluster, dvswitchname):
     dvs_config_spec = vim.VmwareDistributedVirtualSwitch.ConfigSpec()
     dvs_config_spec.name = dvswitchname
     dvs_config_spec.maxMtu = 9000
+    dvs_config_spec.networkResourceManagementEnabled = True
+    dvs_config_spec.networkResourceControlVersion = "version3"
     dvs_config_spec.uplinkPortPolicy = vim.DistributedVirtualSwitch.NameArrayUplinkPortPolicy()
 
     hosts = cluster.host
@@ -609,6 +611,9 @@ def create_host_vnic_config(target_portgroup, target_dvswitch, vmk):
     host_vnic_config.spec.distributedVirtualPort = vim.dvs.PortConnection()
     host_vnic_config.spec.distributedVirtualPort.switchUuid = target_dvswitch.uuid
     host_vnic_config.spec.distributedVirtualPort.portgroupKey = target_portgroup.key
+
+    if vmk == "vmk3":
+        host_vnic_config.spec.netStackInstanceKey = "vmotion"
 
     return host_vnic_config
 
