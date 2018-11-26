@@ -610,8 +610,10 @@ def create_host_vnic_config(target_portgroup, target_dvswitch, vmk):
     host_vnic_config.spec.distributedVirtualPort.switchUuid = target_dvswitch.uuid
     host_vnic_config.spec.distributedVirtualPort.portgroupKey = target_portgroup.key
 
+    '''
     if vmk == "vmk3":
         host_vnic_config.spec.netStackInstanceKey = "vmotion"
+    '''
 
     return host_vnic_config
 
