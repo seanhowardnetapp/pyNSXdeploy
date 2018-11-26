@@ -676,6 +676,7 @@ def move_vm(vm, network):
             nicspec.device.backing.port = dvs_port_connection
 
             nicspec.device.connectable = vim.vm.device.VirtualDevice.ConnectInfo()
+            nicspec.device.connectable.connected = True
             nicspec.device.connectable.startConnected = True
             nicspec.device.connectable.allowGuestControl = True
             device_change.append(nicspec)
