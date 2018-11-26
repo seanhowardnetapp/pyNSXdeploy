@@ -426,8 +426,6 @@ def create_dvSwitch(si, network_folder, cluster, dvswitchname):
     dvs_config_spec = vim.VmwareDistributedVirtualSwitch.ConfigSpec()
     dvs_config_spec.name = dvswitchname
     dvs_config_spec.maxMtu = 9000
-    dvs_config_spec.networkResourceManagementEnabled = True
-    dvs_config_spec.networkResourceControlVersion = "version3"
     dvs_config_spec.uplinkPortPolicy = vim.DistributedVirtualSwitch.NameArrayUplinkPortPolicy()
 
     hosts = cluster.host
