@@ -195,7 +195,7 @@ def main():
     content = si.RetrieveContent()
 
     """ move vmnic3 to the new Management DVS """
-    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI DVS")
+    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI VDS")
     target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Management")
 
     for entity in dc.hostFolder.childEntity:
@@ -232,6 +232,8 @@ def main():
             move_vm(vm, network)
             print("Successfully moved", vmname, "to new Management DVS")
 
+        time.sleep(5)
+
     target_portgroup = get_obj(content, [vim.DistributedVirtualPortgroup], "Management Network")
 
     for entity in dc.hostFolder.childEntity:
@@ -248,7 +250,7 @@ def main():
 
     ''' Move vmnic5 and its associated vmk to the storage dvs'''
 
-    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI DVS")
+    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI VDS")
     target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Storage")
     target_portgroup = get_obj(content, [vim.DistributedVirtualPortgroup], "iSCSI-A")
 
@@ -266,7 +268,7 @@ def main():
 
     ''' Move vmnic1 and its associated vmk to the storage dvs'''
 
-    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI DVS")
+    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI VDS")
     target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Storage")
     target_portgroup = get_obj(content, [vim.DistributedVirtualPortgroup], "iSCSI-B")
 
@@ -284,7 +286,7 @@ def main():
 
     """ Move vmnic0 and its associated vmk to the compute dvs"""
 
-    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI DVS")
+    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI VDS")
     target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Compute")
     target_portgroup = get_obj(content, [vim.DistributedVirtualPortgroup], "vMotion")
 
@@ -302,7 +304,7 @@ def main():
 
     """ Move vmnic4 to the compute dvs"""
 
-    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI DVS")
+    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI VDS")
     target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Compute")
 
     for entity in dc.hostFolder.childEntity:
@@ -496,19 +498,23 @@ def add_dvPort_group(si, dv_switch, portgroupname, vlanid):
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy = vim.dvs.VmwareDistributedVirtualSwitch.UplinkPortTeamingPolicy()
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.policy = vim.StringPolicy(value="loadbalance_loadbased")
 
-    if portgroupname == "HCI_Internal_vCenter_Network_1":
+    if portgroupname == "HCI_Internal_vCenter_Network":
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy = vim.dvs.VmwareDistributedVirtualSwitch.UplinkPortTeamingPolicy()
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.policy = vim.StringPolicy(value="loadbalance_loadbased")
 
-    if portgroupname == "HCI_Internal_OTS_Network_1":
+    if portgroupname == "HCI_Internal_OTS_Network":
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy = vim.dvs.VmwareDistributedVirtualSwitch.UplinkPortTeamingPolicy()
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.policy = vim.StringPolicy(value="loadbalance_loadbased")
 
-    if portgroupname == "HCI_Internal_mNode_Network_1":
+    if portgroupname == "HCI_Internal_mNode_Network":
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy = vim.dvs.VmwareDistributedVirtualSwitch.UplinkPortTeamingPolicy()
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.policy = vim.StringPolicy(value="loadbalance_loadbased")
 
     if portgroupname == "Management Network":
+        dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy = vim.dvs.VmwareDistributedVirtualSwitch.UplinkPortTeamingPolicy()
+        dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.policy = vim.StringPolicy(value="loadbalance_loadbased")
+
+    if portgroupname == "VM_Network":
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy = vim.dvs.VmwareDistributedVirtualSwitch.UplinkPortTeamingPolicy()
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.policy = vim.StringPolicy(value="loadbalance_loadbased")
 
