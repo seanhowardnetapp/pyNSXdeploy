@@ -548,7 +548,7 @@ def list_portgroups_initial(si):
         portgroup_moref_dict[portgroup.name] = portgroup
 
         ''' Check to see that the port group is one that should exist, if you find a weird one, set the flag'''
-        if portgroup.name != "NetApp HCI Uplinks" and portgroup.name != "VM_Network" and portgroup.name != "HCI_Internal_vCenter_Network" and portgroup.name != "HCI_Internal_OTS_Network" and portgroup.name != "HCI_Internal_mNode_Network" and portgroup.name != "vMotion" and portgroup.name != "Management Network" and portgroup.name != "iSCSI-A" and portgroup.name != "iSCSI-B":
+        if portgroup.name != "NetApp HCI Uplinks" and portgroup.name != "VM_Network" and portgroup.name != "HCI_Internal_vCenter_Network" and portgroup.name != "HCI_Internal_OTS_Network" and portgroup.name != "HCI_Internal_mNode_Network" and portgroup.name != "vMotion" and portgroup.name != "Management Network" and portgroup.name != "iSCSI-A" and portgroup.name != "iSCSI-B" and portgroup.name != "vCenter_Recovery_PG":
             portgroup_name_flag = 1
             offending_portgroup = portgroup.name
 
