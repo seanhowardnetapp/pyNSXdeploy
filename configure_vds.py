@@ -201,13 +201,12 @@ def main():
     for entity in dc.hostFolder.childEntity:
         for host in entity.host:
             print("Migrating vmnic3 on host:", host.name)
-            time.sleep(5)
             unassign_pnic_list = ["vmnic0", "vmnic1", "vmnic2", "vmnic4", "vmnic5"]
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
-            time.sleep(5)
+            time.sleep(10)
             assign_pnic_list = ["vmnic3"]
             assign_pnic(target_dvswitch, host, assign_pnic_list)
-            time.sleep(5)
+            time.sleep(10)
 
     ''' relocate the c&c vms '''
     list_of_vms_to_relocate = ["NetApp-Management-Node", "vCenter-Server-Appliance",
@@ -240,13 +239,13 @@ def main():
         for host in entity.host:
             print("Migrating vmnic2 / vmk0 on host:", host.name)
             migrate_vmk(host, target_portgroup, target_dvswitch, "vmk0")
-            time.sleep(5)
+            time.sleep(10)
             unassign_pnic_list = ["vmnic0", "vmnic1", "vmnic4", "vmnic5"]
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
-            time.sleep(5)
+            time.sleep(10)
             assign_pnic_list = ["vmnic2", "vmnic3"]
             assign_pnic(target_dvswitch, host, assign_pnic_list)
-            time.sleep(5)
+            time.sleep(10)
 
     ''' Move vmnic5 and its associated vmk to the storage dvs'''
 
@@ -258,13 +257,13 @@ def main():
         for host in entity.host:
             print("Migrating vmnic5 / vmk1 on host:", host.name)
             migrate_vmk(host, target_portgroup, target_dvswitch, "vmk1")
-            time.sleep(5)
+            time.sleep(10)
             unassign_pnic_list = ["vmnic0", "vmnic1", "vmnic4"]
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
-            time.sleep(5)
+            time.sleep(10)
             assign_pnic_list = ["vmnic5"]
             assign_pnic(target_dvswitch, host, assign_pnic_list)
-            time.sleep(5)
+            time.sleep(10)
 
     ''' Move vmnic1 and its associated vmk to the storage dvs'''
 
@@ -276,13 +275,13 @@ def main():
         for host in entity.host:
             print("Migrating vmnic1 / vmk2 on host:", host.name)
             migrate_vmk(host, target_portgroup, target_dvswitch, "vmk2")
-            time.sleep(5)
+            time.sleep(10)
             unassign_pnic_list = ["vmnic0", "vmnic4"]
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
-            time.sleep(5)
+            time.sleep(10)
             assign_pnic_list = ["vmnic5", "vmnic1"]
             assign_pnic(target_dvswitch, host, assign_pnic_list)
-            time.sleep(5)
+            time.sleep(10)
 
     """ Move vmnic0 and its associated vmk to the compute dvs"""
 
@@ -294,13 +293,13 @@ def main():
         for host in entity.host:
             print("Migrating vmnic0 / vmk3 on host:", host.name)
             migrate_vmk(host, target_portgroup, target_dvswitch, "vmk3")
-            time.sleep(5)
+            time.sleep(10)
             unassign_pnic_list = ["vmnic4"]
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
-            time.sleep(5)
+            time.sleep(10)
             assign_pnic_list = ["vmnic0"]
             assign_pnic(target_dvswitch, host, assign_pnic_list)
-            time.sleep(5)
+            time.sleep(10)
 
     """ Move vmnic4 to the compute dvs"""
 
@@ -310,13 +309,13 @@ def main():
     for entity in dc.hostFolder.childEntity:
         for host in entity.host:
             print("Migrating vmnic4 on host:", host.name)
-            time.sleep(5)
+            time.sleep(10)
             unassign_pnic_list = []
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
-            time.sleep(5)
+            time.sleep(10)
             assign_pnic_list = ["vmnic0", "vmnic4"]
             assign_pnic(target_dvswitch, host, assign_pnic_list)
-            time.sleep(5)
+            time.sleep(10)
 
     """
     clean up the old port groups
