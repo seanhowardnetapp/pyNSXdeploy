@@ -210,7 +210,7 @@ def main():
             time.sleep(5)
 
     ''' relocate the c&c vms '''
-    list_of_vms_to_relocate = ["vCenter-Server-Appliance", "NetApp-Management-Node",
+    list_of_vms_to_relocate = ["NetApp-Management-Node", "vCenter-Server-Appliance",
                                "File Services powered by ONTAP-01"]
 
     for vmname in list_of_vms_to_relocate:
