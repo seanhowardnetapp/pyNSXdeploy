@@ -435,12 +435,12 @@ def create_dvSwitch(si, network_folder, cluster, dvswitchname):
         uplink_port_names.append("NetApp_HCI_Storage_vmnic1")
 
     if dvswitchname == "NetApp HCI Compute":
-        uplink_port_names.append("NetApp_HCI_Virtualization_vmnic0")
-        uplink_port_names.append("NetApp_HCI_Virtualization_vmnic4")
+        uplink_port_names.append("NetApp_HCI_Compute_vmnic0")
+        uplink_port_names.append("NetApp_HCI_Compute_vmnic4")
 
     if dvswitchname == "NetApp HCI Management":
-        uplink_port_names.append("NetApp_HCI_Virtualization_vmnic2")
-        uplink_port_names.append("NetApp_HCI_Virtualization_vmnic3")
+        uplink_port_names.append("NetApp_HCI_Management_vmnic2")
+        uplink_port_names.append("NetApp_HCI_Management_vmnic3")
 
     for host in hosts:
         dvs_config_spec.uplinkPortPolicy.uplinkPortName = uplink_port_names
@@ -513,10 +513,12 @@ def add_dvPort_group(si, dv_switch, portgroupname, vlanid):
     if portgroupname == "Management Network":
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy = vim.dvs.VmwareDistributedVirtualSwitch.UplinkPortTeamingPolicy()
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.policy = vim.StringPolicy(value="loadbalance_loadbased")
+        dv_pg_spec.numPorts = 512
 
     if portgroupname == "VM_Network":
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy = vim.dvs.VmwareDistributedVirtualSwitch.UplinkPortTeamingPolicy()
         dv_pg_spec.defaultPortConfig.uplinkTeamingPolicy.policy = vim.StringPolicy(value="loadbalance_loadbased")
+        dv_pg_spec.numPorts = 512
 
     task = dv_switch.AddDVPortgroup_Task([dv_pg_spec])
     time.sleep(5)
