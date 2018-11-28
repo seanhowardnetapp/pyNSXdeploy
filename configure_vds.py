@@ -22,6 +22,7 @@ Arguments
 import atexit
 import argparse
 import time
+import re
 
 from pyvim.connect import SmartConnectNoSSL, Disconnect
 from pyVmomi import vim, vmodl
@@ -201,7 +202,20 @@ def main():
     for entity in dc.hostFolder.childEntity:
         for host in entity.host:
             print("Migrating vmnic3 on host:", host.name)
-            unassign_pnic_list = ["vmnic0", "vmnic1", "vmnic2", "vmnic4", "vmnic5"]
+            unassign_pnic_list = []
+
+            s = str(host.config.network.proxySwitch)
+
+            result = find_pnic_spec(s)
+
+            # get one or more pnic specs
+            for g in result:
+                v = get_vmnic(g)
+                x = v.split(':')
+
+                if x[0] != "vmnic3":
+                    unassign_pnic_list.append(v)
+
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
             time.sleep(10)
             assign_pnic_list = ["vmnic3"]
@@ -240,7 +254,20 @@ def main():
             print("Migrating vmnic2 / vmk0 on host:", host.name)
             migrate_vmk(host, target_portgroup, target_dvswitch, "vmk0")
             time.sleep(10)
-            unassign_pnic_list = ["vmnic0", "vmnic1", "vmnic4", "vmnic5"]
+            unassign_pnic_list = []
+
+            s = str(host.config.network.proxySwitch)
+
+            result = find_pnic_spec(s)
+
+            # get one or more pnic specs
+            for g in result:
+                v = get_vmnic(g)
+                x = v.split(':')
+
+                if x[0] != "vmnic2":
+                    unassign_pnic_list.append(v)
+
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
             time.sleep(10)
             assign_pnic_list = ["vmnic2", "vmnic3"]
@@ -258,7 +285,20 @@ def main():
             print("Migrating vmnic5 / vmk1 on host:", host.name)
             migrate_vmk(host, target_portgroup, target_dvswitch, "vmk1")
             time.sleep(10)
-            unassign_pnic_list = ["vmnic0", "vmnic1", "vmnic4"]
+            unassign_pnic_list = []
+
+            s = str(host.config.network.proxySwitch)
+
+            result = find_pnic_spec(s)
+
+            # get one or more pnic specs
+            for g in result:
+                v = get_vmnic(g)
+                x = v.split(':')
+
+                if x[0] != "vmnic5":
+                    unassign_pnic_list.append(v)
+
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
             time.sleep(10)
             assign_pnic_list = ["vmnic5"]
@@ -276,7 +316,20 @@ def main():
             print("Migrating vmnic1 / vmk2 on host:", host.name)
             migrate_vmk(host, target_portgroup, target_dvswitch, "vmk2")
             time.sleep(10)
-            unassign_pnic_list = ["vmnic0", "vmnic4"]
+            unassign_pnic_list = []
+
+            s = str(host.config.network.proxySwitch)
+
+            result = find_pnic_spec(s)
+
+            # get one or more pnic specs
+            for g in result:
+                v = get_vmnic(g)
+                x = v.split(':')
+
+                if x[0] != "vmnic1":
+                    unassign_pnic_list.append(v)
+
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
             time.sleep(10)
             assign_pnic_list = ["vmnic5", "vmnic1"]
@@ -294,7 +347,20 @@ def main():
             print("Migrating vmnic0 / vmk3 on host:", host.name)
             migrate_vmk(host, target_portgroup, target_dvswitch, "vmk3")
             time.sleep(10)
-            unassign_pnic_list = ["vmnic4"]
+            unassign_pnic_list = []
+
+            s = str(host.config.network.proxySwitch)
+
+            result = find_pnic_spec(s)
+
+            # get one or more pnic specs
+            for g in result:
+                v = get_vmnic(g)
+                x = v.split(':')
+
+                if x[0] != "vmnic4":
+                    unassign_pnic_list.append(v)
+
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
             time.sleep(10)
             assign_pnic_list = ["vmnic0"]
@@ -331,6 +397,25 @@ def main():
     delete_dvs(dvswitchinfo[2])
 
     print("DVS reconfiguration complete.")
+
+def find_pnic_spec(s):
+    s = s.replace('\n',' ')
+    pat = '\(vim\.dvs\.HostMember\.PnicSpec\)\s*\{.*?\},'
+    r1 = re.compile(pat)
+    r = r1.findall(s)
+
+    return r
+
+
+def get_vmnic(s):
+    pat = '\(vim\.dvs\.HostMember\.PnicSpec\)\s*\{.*?\},'
+    r1 = re.compile(pat)
+    r2 = re.compile('pnicDevice = \'(vmnic\d)\'')
+    r3 = re.compile('uplinkPortKey = \'(\d+)\'')
+    device = r2.search(s).group(1)
+    key = r3.search(s).group(1)
+
+    return device + ':' + key
 
 
 def delete_portgroup(pg):
@@ -650,7 +735,8 @@ def unassign_pnic(dvs, host, pnic_device_list):
     dvs_host_config.backing = vim.dvs.HostMember.PnicBacking()
 
     for pnic in pnic_device_list:
-        dvs_host_config.backing.pnicSpec.append(vim.dvs.HostMember.PnicSpec(pnicDevice=pnic))
+        pnic = pnic.split(':')
+        dvs_host_config.backing.pnicSpec.append(vim.dvs.HostMember.PnicSpec(pnicDevice=pnic[0],uplinkPortKey=pnic[1]))
 
     dvs_host_config.host = host
     dvs_host_configs.append(dvs_host_config)
