@@ -193,9 +193,10 @@ def main():
 
     ''' Now its time to move the VMkernel IPs over to the new port groups'''
 
-    content = si.RetrieveContent()
+
 
     """ move vmnic3 to the new Management DVS """
+    content = si.RetrieveContent()
     source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI VDS")
     target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Management")
 
@@ -265,7 +266,7 @@ def main():
                 v = get_vmnic(g)
                 x = v.split(':')
 
-                if x[0] != "vmnic2":
+                if x[0] != "vmnic2" and x[0] !="vmnic3":
                     unassign_pnic_list.append(v)
 
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
@@ -296,7 +297,7 @@ def main():
                 v = get_vmnic(g)
                 x = v.split(':')
 
-                if x[0] != "vmnic5":
+                if x[0] != "vmnic5" and x[0] != "vmnic2" and x[0] !="vmnic3":
                     unassign_pnic_list.append(v)
 
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
@@ -327,7 +328,7 @@ def main():
                 v = get_vmnic(g)
                 x = v.split(':')
 
-                if x[0] != "vmnic1":
+                if x[0] != "vmnic1" and x[0] != "vmnic5" and x[0] != "vmnic2" and x[0] !="vmnic3":
                     unassign_pnic_list.append(v)
 
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
@@ -358,7 +359,7 @@ def main():
                 v = get_vmnic(g)
                 x = v.split(':')
 
-                if x[0] != "vmnic4":
+                if x[0] != "vmnic4" and x[0] != "vmnic1" and x[0] != "vmnic5" and x[0] != "vmnic2" and x[0] !="vmnic3":
                     unassign_pnic_list.append(v)
 
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
