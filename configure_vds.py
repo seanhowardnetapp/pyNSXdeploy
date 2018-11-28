@@ -337,7 +337,7 @@ def main():
             assign_pnic(target_dvswitch, host, assign_pnic_list)
             time.sleep(10)
 
-    """ Move vmnic0 and its associated vmk to the compute dvs"""
+    """ Move vmnic0/vmnic4 and the vmotion vmk to the compute dvs"""
 
     source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI VDS")
     target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Compute")
@@ -345,37 +345,8 @@ def main():
 
     for entity in dc.hostFolder.childEntity:
         for host in entity.host:
-            print("Migrating vmnic0 / vmk3 on host:", host.name)
+            print("Migrating vmnic0 / vmnic4 / vmk3 on host:", host.name)
             migrate_vmk(host, target_portgroup, target_dvswitch, "vmk3")
-            time.sleep(10)
-            unassign_pnic_list = []
-
-            s = str(host.config.network.proxySwitch)
-
-            result = find_pnic_spec(s)
-
-            # get one or more pnic specs
-            for g in result:
-                v = get_vmnic(g)
-                x = v.split(':')
-
-                if x[0] != "vmnic4" and x[0] != "vmnic1" and x[0] != "vmnic5" and x[0] != "vmnic2" and x[0] !="vmnic3":
-                    unassign_pnic_list.append(v)
-
-            unassign_pnic(source_dvswitch, host, unassign_pnic_list)
-            time.sleep(10)
-            assign_pnic_list = ["vmnic0"]
-            assign_pnic(target_dvswitch, host, assign_pnic_list)
-            time.sleep(10)
-
-    """ Move vmnic4 to the compute dvs"""
-
-    source_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI VDS")
-    target_dvswitch = get_obj(content, [vim.DistributedVirtualSwitch], "NetApp HCI Compute")
-
-    for entity in dc.hostFolder.childEntity:
-        for host in entity.host:
-            print("Migrating vmnic4 on host:", host.name)
             time.sleep(10)
             unassign_pnic_list = []
             unassign_pnic(source_dvswitch, host, unassign_pnic_list)
@@ -383,6 +354,7 @@ def main():
             assign_pnic_list = ["vmnic0", "vmnic4"]
             assign_pnic(target_dvswitch, host, assign_pnic_list)
             time.sleep(10)
+
 
     """
     clean up the old port groups
