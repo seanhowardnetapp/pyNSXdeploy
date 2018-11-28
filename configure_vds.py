@@ -738,10 +738,10 @@ def move_vm(vm, network):
             nicspec.device.connectable.startConnected = True
             nicspec.device.connectable.allowGuestControl = True
             device_change.append(nicspec)
-            break
 
-    config_spec = vim.vm.ConfigSpec(deviceChange=device_change)
-    task = vm.ReconfigVM_Task(config_spec)
+            config_spec = vim.vm.ConfigSpec(deviceChange=device_change)
+            task = vm.ReconfigVM_Task(config_spec)
+
 
 
 if __name__ == "__main__":
